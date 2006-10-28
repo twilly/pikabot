@@ -236,7 +236,7 @@ sub trigger_anidb_search_local {
     return 0;
   }
 
-  my $dbh = DBI->connect("dbi:Pg:dbname=anidb;host=localhost",
+  my $dbh = DBI->connect("dbi:Pg:dbname=anidb",
 			 'anidb', 'pikachu',
 			 { RaiseError => 1, AutoCommit => 1 })
     or eval { warn "[ERROR] Error connecting to the database: $DBI::errstr\n"; return 1; };

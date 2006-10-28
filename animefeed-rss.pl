@@ -11,7 +11,7 @@ my $cgi = new CGI;
 my $xml = new XML::Writer(UNSAFE => 1);
 my ($dbh, $sth);
 eval {
-  $dbh = DBI->connect("dbi:Pg:dbname=animefeed;host=supersrv.internal", 'animefeed', 'theanime',
+  $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef,
                       { RaiseError => 1,
                         PrintError => 0,
                         AutoCommit => 0 });

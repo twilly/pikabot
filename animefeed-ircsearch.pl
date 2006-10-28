@@ -59,7 +59,7 @@ sub animefeed_search {
     return;
   }
   eval {
-    $dbh = DBI->connect("dbi:Pg:dbname=animefeed;host=supersrv.internal", 'animefeed', 'theanime',
+    $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef,
                         { RaiseError => 1,
                           PrintError => 0,
                           AutoCommit => 0 });

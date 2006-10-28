@@ -23,7 +23,7 @@ my $twig = new XML::Twig(
 my ($dbh, $item_sth); # needs to be accessed by twig handlers
 while(1) {
   ($dbh, $item_sth) = ();
-  $dbh = DBI->connect("dbi:Pg:dbname=animefeed;host=supersrv.internal", 'animefeed', 'theanime',
+  $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef
                       { RaiseError => 1,
                         PrintError => 0,
                         AutoCommit => 0 }) or
