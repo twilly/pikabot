@@ -7,7 +7,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-           'contact'     => 'twilly@ucsc.edu',
+           'contact'     => 'tristan.willy at gmail.com',
            'name'        => 'Trivia Cheater',
            'description' => 'Listens for triva bots and answers what it can.',
            'license'     => 'GPL v2' );

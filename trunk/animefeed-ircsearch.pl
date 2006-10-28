@@ -8,7 +8,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-           'contact'     => 'twilly@ucsc.edu',
+           'contact'     => 'tristan.willy at gmail.com',
            'name'        => 'animefeed-ircsearch',
            'description' => 'AnimeFeed database search tool',
            'license'     => 'GPL v2' );
