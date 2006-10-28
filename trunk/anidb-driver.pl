@@ -12,7 +12,7 @@ if($#ARGV < 0){
   exit 1;
 }
 
-my $anidb = anidb->new('Database' => 'anidb-nextgen');
+my $anidb = anidb->new('Database' => 'anidb-nextgen')
   or die "anidb creation error: $!\n";
 
 # run queries
