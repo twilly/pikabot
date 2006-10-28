@@ -33,7 +33,7 @@ sub irc_privmsg {
 
   # Check if it was for the channel we joined...
   if(uc($to) eq uc($me) or $deref_active_chans{uc($to)}){
-    if($message =~ /^\s*!deref(erence)?\s(\S+)/i){
+    if($message =~ /^\s*!deref(erence)?\s+(\S+)/i){
       trigger_deref($server, $target, $to, $from, $address, $2);
     }
   }
