@@ -26,7 +26,7 @@ sub new {
 
   # connect to the DB
   $self->{dbh} =
-    DBI->connect("dbi:Pg:dbname=$params{Database};host=localhost",
+    DBI->connect("dbi:Pg:dbname=$params{Database}",
 		 $params{Username}, $params{Password},
 		 { RaiseError => 1, AutoCommit => 0 })
       or return undef;

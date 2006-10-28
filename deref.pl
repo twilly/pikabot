@@ -8,7 +8,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'twilly@ucsc.edu',
+	   'contact'     => 'tristan.willy at gmail.com',
 	   'name'        => 'Deref',
 	   'description' => 'Dereferences URL redirects (ex: tinyurl).',
 	   'license'     => 'GPL v2' );

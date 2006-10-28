@@ -8,7 +8,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'twilly@ucsc.edu',
+	   'contact'     => 'tristan.willy at gmail.com',
 	   'name'        => 'autovoice',
 	   'description' => 'auto-voice fservs',
 	   'license'     => 'GPL v2' );

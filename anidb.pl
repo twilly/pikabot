@@ -8,7 +8,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.10';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'twilly@ucsc.edu',
+	   'contact'     => 'tristan.willy at gmail.com',
 	   'name'        => 'AniDB',
 	   'description' => 'AniDB in-channel query & report.',
 	   'license'     => 'GPL v2' );

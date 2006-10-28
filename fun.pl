@@ -7,7 +7,7 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.10';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'twilly@ucsc.edu',
+	   'contact'     => 'tristan.willy at gmail.com',
 	   'name'        => 'Fun',
 	   'description' => 'Fun channel triggers',
 	   'license'     => 'GPL v2' );
