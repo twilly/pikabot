@@ -1,0 +1,19 @@
+-= TODO =-
+
+[ general ]
+- identify '+c' mode and strip messages of color.
+- make a messaging system, similar to GAIM's buddy pounce.
+- !weather
+
+[ fun.pl ]
+- !molest
+
+[ anidb.pl ]
+- rework from ground up
+- fix up cache system
+- log searches
+- create anime suggestion trigger based on popular and rare searches
+- support kanji searches
+
+[ autovoice.pl ]
+- finish this
