@@ -7,6 +7,12 @@ use XML::Writer;
 use Digest::MD5 qw(md5_hex);
 use HTTP::Date;
 
+# Change if you are using https
+my $scheme = 'http';
+# This is so running locally will work
+$ENV{HTTP_HOST} = 'localhost' if not defined $ENV{HTTP_HOST};
+$ENV{REQUEST_URI} = "/cgi-bin/$0" if not defined $ENV{HTTP_HOST};
+
 my $cgi = new CGI;
 my $xml = new XML::Writer(UNSAFE => 1);
 my ($dbh, $sth);
@@ -25,7 +31,7 @@ eval {
   $xml->startTag("channel");
   $xml->startTag("title"); $xml->characters("AnimeFeed"); $xml->endTag("title");
   $xml->startTag("link");
-   $xml->characters("http://oskam.dyndns.org:6881/cgi-bin/animefeed-rss.pl");
+   $xml->characters("$scheme://$ENV{HTTP_HOST}$ENV{REQUEST_URI}");
   $xml->endTag("link");
   $xml->startTag("description");
   $xml->characters("Aggregated and cached anime RSS feeds.");
@@ -52,9 +58,10 @@ eval {
   $dbh->disconnect;
 };
 if($@){
+  my $err = $@;
   $dbh->disconnect if defined $dbh;
   print $cgi->header(-status=>500);
-  print "Internal error: $@\n";
+  print "Internal error: $err\n";
 }
 exit 0;
 
