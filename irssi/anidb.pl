@@ -88,17 +88,35 @@ sub trigger_anidb {
       return;
     }
 
+    # The anidb module can return multiple titles with the same id. Merge these
+    # titles together.
+    my %mergeset;
+    map {
+      if(defined $mergeset{$_->{id}}){
+        $mergeset{$_->{id}} .= ", $_->{title}";
+      } else {
+        $mergeset{$_->{id}} .= $_->{title};
+      }
+    } @titles;
+    @titles = ();
+    map {
+      push @titles, { 'id' => $_, 'title' => $mergeset{$_} };
+    } keys %mergeset;
+
+    # Sort the title set so the highest id is first
+    @titles = sort { $b->{id} <=> $a->{id} } @titles;
+
     # More than one result means we should print out all the title maches
     # This will also break up results into multiple messages should a few
     # titles exceed the maximum message length limit.
+    # Note: titles are printed in descending id number.
     if($#titles > 0){
-      my $header = "\x0313AniDB Title Results:\x0311 ";
+      my $header = "\x0313AniDB Title Results:\x0311";
       my $msgbuff = $header;
       foreach my $title (@titles){
         my $prevstate = $msgbuff;
         my $item;
-        $item = ' ' if $msgbuff ne $header;
-        $item .= "ID:$title->{id} [\x0312 $title->{title}\x0311 ]";
+        $item .= " ID:$title->{id} [\x0312 $title->{title}\x0311 ]";
         if(length($msgbuff . $item) > 256){ # prevent overflow
           $server->command("msg $target $prevstate");
           $msgbuff = $header . $item;
