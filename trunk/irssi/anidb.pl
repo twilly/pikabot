@@ -99,7 +99,7 @@ sub trigger_anidb {
         my $item;
         $item = ' ' if $msgbuff ne $header;
         $item .= "ID:$title->{id} [\x0312 $title->{title}\x0311 ]";
-        if(length($msgbuff . $item) > 512){
+        if(length($msgbuff . $item) > 256){ # prevent overflow
           $server->command("msg $target $prevstate");
           $msgbuff = $header . $item;
         } else {
