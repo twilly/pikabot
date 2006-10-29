@@ -1,7 +1,8 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 #
 # anidb-driver.pl: a driver for anidb.pm. used for testing
 
+use warnings;
 use strict;
 
 use lib "../modules";
