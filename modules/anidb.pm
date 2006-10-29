@@ -6,7 +6,7 @@ use Compress::Zlib;
 use DBI;
 use Encode;
 use HTML::TreeBuilder;
-use HTML::Entities qw(:DEFAULT encode_entities_numeric);
+use HTML::Entities;
 use URI::Escape;
 
 sub new {
@@ -22,20 +22,22 @@ sub new {
   # set optional paramaters
   map {
     $params{$_} = exists $params{$_} ?  $params{$_} : undef;
-  } ('Username', 'Password');
+  } ('Username', 'Password', 'Server');
 
   # connect to the DB
+  my $connect_str = "dbi:Pg:dbname=$params{Database}";
+  $connect_str .= ";host=$params{Server}" if defined $params{Server};
   $self->{dbh} =
-    DBI->connect("dbi:Pg:dbname=$params{Database}",
-		 $params{Username}, $params{Password},
-		 { RaiseError => 1, AutoCommit => 0 })
+    DBI->connect($connect_str,
+                 $params{Username}, $params{Password},
+                 { RaiseError => 1, AutoCommit => 0 })
       or return undef;
 
   # make a LWP object for quering anidb
   my $ua = LWP::UserAgent->new() or return undef;
   $ua->timeout(15);
   $ua->agent('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.12) ' .
-	     'Gecko/20050922 Fedora/1.0.7-1.1.fc3 Firefox/1.0.7');
+             'Gecko/20050922 Fedora/1.0.7-1.1.fc3 Firefox/1.0.7');
   $self->{ua} = $ua;
 
   return bless $self, $type;
@@ -97,18 +99,18 @@ sub title_search {
     # select title results if we can match a query
     my $sth = $self->{dbh}->prepare
       ("SELECT id_num, title FROM search_cache, search_hits " .
-       "AND search_cache.sid = search_hits.sid " .
+       "WHERE search_cache.sid = search_hits.sid " .
        "AND terms = ?");
     $sth->execute($query);
     while(my $row = $sth->fetchrow_arrayref()){
       push @results,
-	{ 'id' => $row->[0],
-	  'title' => $row->[1] };
+        { 'id' => $row->[0],
+          'title' => $row->[1] };
     }
     $sth->finish();
   };
   if($@){
-    warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    warn "anidb.pm: Database error: $@\n";
     return undef;
   }
 
@@ -127,15 +129,15 @@ sub anime_search {
     ('aid' => $id,
      'key descriptions' =>
       { 'titles' => 'titles [array ref]',
-	'genres' => 'genre names [array ref]',
-	'rating' => 'rating [scalar, float]',
-	'type'   => 'type (ex: Movie, OVA, TV, etc) [scalar, string]',
-	'numeps' => 'number of episodes [scalar, integer]',
-	'url'    => 'url of official website [scalar, string]',
-	'startdate' => 'first aired/released date [scalar, string, YYYY-MM-DD format]',
-	'enddate' => 'last aired/released date [scalar, string, YYYY-MM-DD format]',
-	'aid'    => 'AniDB anime id [scalar, integer]'
-	}
+        'genres' => 'genre names [array ref]',
+        'rating' => 'rating [scalar, float]',
+        'type'   => 'type (ex: Movie, OVA, TV, etc) [scalar, string]',
+        'numeps' => 'number of episodes [scalar, integer]',
+        'url'    => 'url of official website [scalar, string]',
+        'startdate' => 'first aired/released date [scalar, string, YYYY-MM-DD format]',
+        'enddate' => 'last aired/released date [scalar, string, YYYY-MM-DD format]',
+        'aid'    => 'AniDB anime id [scalar, integer]'
+        }
     );
 
   # validity check
@@ -150,7 +152,7 @@ sub anime_search {
 
   # can we find it?
   my @table_metadata = ( 'aid', 'type', 'numeps', 'rating',
-			 'startdate', 'enddate', 'url' );
+                         'startdate', 'enddate', 'url' );
   eval {
     my $sth;
     $sth = $self->{dbh}->prepare
@@ -190,7 +192,7 @@ sub anime_search {
     $sth->finish();
   };
   if($@){
-    warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    warn "anidb.pm: error: $@\n";
     return undef;
   }
 
@@ -206,9 +208,10 @@ sub title_insert {
 
     # insert search term
     $sth = $self->{dbh}->prepare
-      ("INSERT INTO search_cache VALUES (DEFAULT, ?, date 'now')");
+      ("INSERT INTO search_cache_table VALUES (DEFAULT, ?, 'now')");
     $sth->execute($query);
     $sth->finish();
+    $self->{dbh}->commit(); # make the sid avialable
 
     # retrieve search term's sid
     $sth = $self->{dbh}->prepare
@@ -230,7 +233,7 @@ sub title_insert {
     $self->{dbh}->commit();
   };
   if($@){
-    warn "anidb.pm: database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    warn "anidb.pm: database error: $@\n";
     $self->{dbh}->rollback();
   }
 }
@@ -239,9 +242,6 @@ sub download_and_parse {
   my ($self, $url, $parser) = @_;
 
   # prepare a request
-  print "old url: $url\n";
-  $url = uri_escape($url,"\x00-\x1f\x7f-\xff");
-  print "new url: $url\n";
   my $request = HTTP::Request->new(GET => $url);
   $request->header('Referer' => 'http://www.anidb.info/perl-bin/');
 
@@ -251,7 +251,7 @@ sub download_and_parse {
     if(defined $page->content_encoding and
        $page->content_encoding eq 'gzip'){
       return $parser->($self,
-		       decode('utf8', Compress::Zlib::memGunzip($page->content)));
+                       decode('utf8', Compress::Zlib::memGunzip($page->content)));
     } else {
       return $parser->($self, decode('utf8', $page->content));
     }
@@ -279,10 +279,7 @@ sub anidb_anime {
 sub anidb_search {
   my ($self, $query) = @_;
 
-  print "old query: $query\n";
-  $query = uri_escape(encode_entities_numeric($query, "\200-\377"));
-  print "new query: $query\n";
-
+  $query = uri_escape($query); # support for kanji
   return download_and_parse
     ($self,
      "http://www.anidb.info/perl-bin/animedb.pl?show=animelist&adb.search=" .
@@ -304,7 +301,7 @@ sub anidb_search_parse {
     # Single hit. Return the result.
     my ($aid, $title) = (0, '[none]');
     if($single_hit->content_array_ref->[0] =~ /^Show Anime - (.+)/){
-      $title = encode('utf8', $1);
+      $title = $1;
     }
     my $link;
     if(defined ($link = $tree->look_down('_tag', 'a', \&test_aid_link)) and
@@ -328,9 +325,9 @@ sub anidb_search_parse {
       # Titles are either there or in a italic subtag
       my $title = '';
       if(my $t = $link->look_down('_tag', 'i')){ # Non-Japanese title
-	$title = encode('utf8', decode_entities($t->content_array_ref->[0]));
+        $title = decode_entities($t->content_array_ref->[0]);
       } else { # Japanese title
-	$title = encode('utf8', decode_entities($link->content_array_ref->[0]));
+        $title = decode_entities($link->content_array_ref->[0]);
       }
 
       push @titles, { 'id' => $aid, 'title' => $title };
@@ -389,7 +386,7 @@ sub anime_insert {
     # put in basic anime info
     $sth = $self->{dbh}->prepare("INSERT INTO anime VALUES (?,?,?,?,?,?,?)");
     $sth->execute($info->{aid}, $info->{type}, $info->{numeps}, $info->{rating},
-		  $info->{startdate}, $info->{enddate}, $info->{url});
+                  $info->{startdate}, $info->{enddate}, $info->{url});
     $sth->finish();
 
     # Genre association
@@ -409,14 +406,14 @@ sub anime_insert {
     $sth->finish();
 
     # update cache status
-    $sth = $self->{dbh}->prepare("INSERT INTO details_cache VALUES (?, date 'now')");
+    $sth = $self->{dbh}->prepare("INSERT INTO details_cache VALUES (?, 'now')");
     $sth->execute($info->{aid});
     $sth->finish();
 
     $self->{dbh}->commit();
   };
   if($@){
-    warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    warn "anidb.pm: error: $@\n";
     $self->{dbh}->rollback();
   }
 }
@@ -450,19 +447,20 @@ sub anidb_anime_parse {
   my %translation =
     ( 'Title:'      =>
       sub {
-	$info{'maintitle'} = decode_entities($_[1]);
-	add_title(@_);
+        $info{'maintitle'} = decode_entities($_[1]);
+        $info{'maintitle'} =~ s/\s+\(\d+\)\s*$//; # get rid of that ID junk
+        add_title($_[0], $info{'maintitle'});
       },
 
       'Jap. Kanji:' => \&add_title,
-
       'English:'    => \&add_title,
+      'Kanji/Kana:' => \&add_title,
 
       'Genre:'      =>
       sub {
-	my $str = $_[1];
-	$str =~ s/ - .+$//;
-	push @{$info{'genres'}}, split(/, /, $str);
+        my $str = $_[1];
+        $str =~ s/ - .+$//;
+        push @{$info{'genres'}}, split(/, /, $str);
       },
 
       'Type:' =>
@@ -473,8 +471,8 @@ sub anidb_anime_parse {
 
       'URL:' =>
       sub {
-	$info{'url'} = $_[1];
-	if($info{'url'} eq ''){ $info{'url'} = undef }
+        $info{'url'} = $_[1];
+        if($info{'url'} eq ''){ $info{'url'} = undef }
       },
 
       'Rating:' =>
@@ -482,20 +480,20 @@ sub anidb_anime_parse {
 
       'Year:' =>
       sub {
-	my ($info, $val) = @_;
-	if($val =~ /\((\d{2})\.(\d{2})\.(\d{4}) till (\d{2})\.(\d{2})\.(\d{4})\)/){
-	  my @cpy = ($1, $2, $3, $4, $5, $6);
-	  map { $_ =~ s/^0+// } @cpy;
-	  $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
-	  $info->{'enddate'} = "$cpy[4]/$cpy[3]/$cpy[5]";
-	}
+        my ($info, $val) = @_;
+        if($val =~ /\((\d{2})\.(\d{2})\.(\d{4}) till (\d{2})\.(\d{2})\.(\d{4})\)/){
+          my @cpy = ($1, $2, $3, $4, $5, $6);
+          map { $_ =~ s/^0+// } @cpy;
+          $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
+          $info->{'enddate'} = "$cpy[4]/$cpy[3]/$cpy[5]";
+        }
       },
 
       'Tmp. Rating:' =>
       sub {
-	if(not defined $info{'rating'} and $_[1] =~ /(\d+\.\d+)/){
-	  $info{'rating'} = $1
-	}
+        if(not defined $info{'rating'} and $_[1] =~ /(\d+\.\d+)/){
+          $info{'rating'} = $1
+        }
       }
     );
 
@@ -503,7 +501,7 @@ sub anidb_anime_parse {
   foreach my $match ($tree->look_down('_tag', 'tr', \&match_two_row)){
     my @row = $match->content_list();
     my ($left, $right) = map {
-      $_ = encode('utf8', decode_entities(space_collapse($_->as_text())));
+      $_ = decode_entities(space_collapse($_->as_text()));
     } $match->content_list();
     #print "`$left' -> `$right'\n";
     if(defined $translation{$left}){
