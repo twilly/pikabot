@@ -30,7 +30,7 @@ sub new {
   $self->{dbh} =
     DBI->connect($connect_str,
                  $params{Username}, $params{Password},
-                 { RaiseError => 1, AutoCommit => 0 })
+                 { RaiseError => 1, PrintError => 0,  AutoCommit => 0 })
       or return undef;
 
   # make a LWP object for quering anidb
@@ -43,9 +43,15 @@ sub new {
   return bless $self, $type;
 }
 
+sub close {
+  my $self = shift;
+  eval { $self->{dbh}->rollback };
+  eval { $self->{dbh}->disconnect };
+}
+
 sub DESTORY {
   my $self = shift;
-  $self->{dbh}->disconnect if defined $self->{dbh};
+  anidb::close($self);
 }
 
 # public title_query(<search string>)
@@ -60,7 +66,7 @@ sub title_query {
   $titles = title_search($self, $query);
   if(not defined $titles){
     $titles = anidb_search($self, $query);
-    if(defined $titles){
+    if($#{$titles} >= 0){
       title_insert($self, $query, $titles);
     }
   }
@@ -68,7 +74,7 @@ sub title_query {
   if(defined $titles){
     return @{$titles};
   } else {
-    return undef;
+    return ();
   }
 }
 
@@ -110,7 +116,7 @@ sub title_search {
     $sth->finish();
   };
   if($@){
-    warn "anidb.pm: Database error: $@\n";
+    #warn "anidb.pm: Database error: $@\n";
     return undef;
   }
 
@@ -142,11 +148,11 @@ sub anime_search {
 
   # validity check
   if(not defined $id){
-    warn "anidb.pm: stupid programmer alert";
+    #warn "anidb.pm: stupid programmer alert";
     return undef;
   }
   if($id !~ /^\d+$/){
-    warn "anidb.pm: anime_search: $id is not a number\n";
+    #warn "anidb.pm: anime_search: $id is not a number\n";
     return undef;
   }
 
@@ -192,7 +198,7 @@ sub anime_search {
     $sth->finish();
   };
   if($@){
-    warn "anidb.pm: error: $@\n";
+    #warn "anidb.pm: error: $@\n";
     return undef;
   }
 
@@ -211,7 +217,6 @@ sub title_insert {
       ("INSERT INTO search_cache_table VALUES (DEFAULT, ?, 'now')");
     $sth->execute($query);
     $sth->finish();
-    $self->{dbh}->commit(); # make the sid avialable
 
     # retrieve search term's sid
     $sth = $self->{dbh}->prepare
@@ -233,8 +238,8 @@ sub title_insert {
     $self->{dbh}->commit();
   };
   if($@){
-    warn "anidb.pm: database error: $@\n";
-    $self->{dbh}->rollback();
+    #warn "anidb.pm: database error: $@\n";
+    eval { $self->{dbh}->rollback() };
   }
 }
 
@@ -256,7 +261,7 @@ sub download_and_parse {
       return $parser->($self, decode('utf8', $page->content));
     }
   } else {
-    warn "anidb.pm: error downling anidb page: " . $page->status_line() . "\n";
+    #warn "anidb.pm: error downling anidb page: " . $page->status_line() . "\n";
   }
 
   return undef;
@@ -338,7 +343,7 @@ sub anidb_search_parse {
   if($#titles >= 0){
     return \@titles;
   } else {
-    return undef;
+    return [];
   }
 }
 
@@ -413,8 +418,8 @@ sub anime_insert {
     $self->{dbh}->commit();
   };
   if($@){
-    warn "anidb.pm: error: $@\n";
-    $self->{dbh}->rollback();
+    #warn "anidb.pm: error: $@\n";
+    eval { $self->{dbh}->rollback() };
   }
 }
 
@@ -435,8 +440,8 @@ sub anime_insert_genres {
     $self->{dbh}->commit(); # commit any changes
   };
   if($@){
-    warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
-    $self->{dbh}->rollback();
+    #warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    eval { $self->{dbh}->rollback() };
   }
 }
 
