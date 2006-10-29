@@ -4,7 +4,7 @@
 
 use strict;
 
-push @INC, '.';
+use lib "../modules";
 use anidb;
 
 if($#ARGV < 0){

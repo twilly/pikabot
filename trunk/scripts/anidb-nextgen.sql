@@ -11,12 +11,12 @@ DROP TABLE genre_names CASCADE;
 -- Data
 CREATE TABLE anime (
 	aid int PRIMARY KEY,
-	type varchar(8),
+	type varchar(32),
 	numeps int,
 	rating real,
 	startdate date,
 	enddate date,
-	url varchar(256)
+	url varchar(1024)
 );
 CREATE TABLE titles (
 	aid int REFERENCES anime(aid),
@@ -34,12 +34,12 @@ CREATE TABLE genre (
 -- Metadata
 CREATE TABLE details_cache (
 	aid int PRIMARY KEY REFERENCES anime(aid),
-	last_refreshed date
+	last_refreshed timestamp
 );
 CREATE TABLE search_cache_table (
   sid SERIAL UNIQUE,
   terms varchar(256) PRIMARY KEY,
-  last_refreshed date
+  last_refreshed timestamp
 );
 CREATE TABLE search_hits (
   sid int REFERENCES search_cache_table(sid),
@@ -50,10 +50,4 @@ CREATE TABLE search_hits (
 -- Use this to inspect the search cache
 CREATE VIEW search_cache AS
   SELECT * FROM search_cache_table
-    WHERE last_refreshed < interval '1m';
-
--- Remove old junk from the search cache when we update the table
-CREATE RULE search_cache_cleaner
-  AS ON INSERT
-  TO search_cache_table
-  DO ALSO DELETE FROM search_cache_table WHERE last_refreshed >= interval '1m';
+    WHERE age(current_timestamp, last_refreshed) < interval '1 month';
