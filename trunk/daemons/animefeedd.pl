@@ -1,7 +1,8 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 # Scrape data from RSS feeds and load them into the database.
 
+use warnings;
 use strict;
 use XML::Twig;
 use LWP::Simple;
