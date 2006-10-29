@@ -481,7 +481,7 @@ sub anidb_anime_parse {
       'Year:' =>
       sub {
         my ($info, $val) = @_;
-        if($val =~ /\((\d{2})\.(\d{2})\.(\d{4}) till (\d{2})\.(\d{2})\.(\d{4})\)/){
+        if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})\s+till\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/){
           my @cpy = ($1, $2, $3, $4, $5, $6);
           map { $_ =~ s/^0+// } @cpy;
           $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
