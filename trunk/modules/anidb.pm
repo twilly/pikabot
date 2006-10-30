@@ -35,9 +35,9 @@ sub new {
 
   # make a LWP object for quering anidb
   my $ua = LWP::UserAgent->new() or return undef;
-  $ua->timeout(15);
-  $ua->agent('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.12) ' .
-             'Gecko/20050922 Fedora/1.0.7-1.1.fc3 Firefox/1.0.7');
+  $ua->timeout(30);
+  $ua->agent('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) ' .
+             'Gecko/20061010 Firefox/2.0');
   $self->{ua} = $ua;
 
   return bless $self, $type;
@@ -248,7 +248,7 @@ sub download_and_parse {
 
   # prepare a request
   my $request = HTTP::Request->new(GET => $url);
-  $request->header('Referer' => 'http://www.anidb.info/perl-bin/');
+  $request->header('Referer' => 'http://www.anidb.info/perl-bin/animedb.pl');
 
   # download the page
   my $page = $self->{ua}->request($request);
@@ -275,7 +275,7 @@ sub anidb_anime {
     download_and_parse
       ($self,
        "http://www.anidb.info/perl-bin/animedb.pl?show=anime&aid=$id",
-       \&anidb_anime_parse);
+       \&anidb_anime_parse) or return undef;
   $info->{aid} = $id;
   return $info;
 }
@@ -288,7 +288,7 @@ sub anidb_search {
   return download_and_parse
     ($self,
      "http://www.anidb.info/perl-bin/animedb.pl?show=animelist&adb.search=" .
-     $query . "&do.search.x=0&do.search.y=0", \&anidb_search_parse);
+     $query . "&do.search=search", \&anidb_search_parse);
 }
 
 # parses anidb search HTML
@@ -301,11 +301,11 @@ sub anidb_search_parse {
 
   my $single_hit = $tree->look_down
     ('_tag', 'h1',
-     sub { return 1 if ($_[0]->content_array_ref->[0] =~ /^Show Anime/); return 0 });
+     sub { return 1 if ($_[0]->content_array_ref->[0] =~ /^Show\s+Anime/i); return 0 });
   if(defined $single_hit){
     # Single hit. Return the result.
     my ($aid, $title) = (0, '[none]');
-    if($single_hit->content_array_ref->[0] =~ /^Show Anime - (.+)/){
+    if($single_hit->content_array_ref->[0] =~ /^Show\s+Anime\s+-\s+(.+)/i){
       $title = $1;
     }
     my $link;
