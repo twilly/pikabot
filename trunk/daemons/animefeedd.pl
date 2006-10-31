@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-#
 # animefeedd.pl: animefeed daemon which aggregates rss feeds into a single database.
 #
 # Copyright (C) 2006   Tristan Willy <tristan.willy@gmail.com>
