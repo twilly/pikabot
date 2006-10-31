@@ -23,14 +23,14 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'tristan.willy at gmail.com',
-	   'name'        => 'autovoice',
-	   'description' => 'auto-voice fservs',
-	   'license'     => 'GPL v2' );
+           'contact'     => 'tristan.willy at gmail.com',
+           'name'        => 'autovoice',
+           'description' => 'auto-voice fservs',
+           'license'     => 'GPL v2' );
 
 Irssi::settings_add_str($IRSSI{'name'}, 'autovoice_channels', '');
 
-my (%active_chans, %state);
+my (%active_chans, %voice_cache);
 load_globals();
 
 Irssi::signal_add('message irc notice', 'irc_notice');
@@ -45,14 +45,8 @@ sub irc_notice {
   my ($server, $message, $from, $address, $to) = @_;
   my ($me, $target) = ($server->{'nick'}, find_target($to, $from));
 
-  # Check if it was for the channel we joined...
-  if(uc($to) eq uc($me)){
-    if(is_fserv_notice($message) and
-       have_mode($me, '[%@]') and
-       not have_mode($from, '.') and # they should have no mode on them
-       is_before_timeout()){
-      #$channel->voice($from);
-    }
+  if(is_fserv_notice($message)){
+    $voice_cache{$server}{$from} = time();
   }
 }
 
@@ -61,20 +55,33 @@ sub irc_notice {
 sub irc_join {
 }
 
+# same as above, but for many people
+sub irc_massjoin {
+  my ($channel, $nicks_aref) = @_;
+
+  return if (not $channel->{chanop}); # is half-op also chanop?
+
+  # Search through nicks for matches in the cache
+  my @to_voice;
+  my $oldest_timestamp = time() - (60*60); # 1 hour timeout
+  map {
+    if($voice_cache{$channel->{server}}{$_->{nick}} >= $oldest_timestamp){
+      push @to_voice, $_->{nick};
+    }
+  } (@{$nicks_aref});
+
+  # voice three people at a time
+  while(my @set = splice(@to_voice, 0, 3)){ 
+    $channel->{server}->command("mode $channel->{name} +v @set");
+  }
+}
+
 sub is_fserv_notice {
   my $msg = shift;
-  my @tests = ( 'fserv\s+active', 'file\s+server\s+online', 'XDCC' );
 
-  # Run each regex against the message
-  foreach my $test (@tests){
-    if($msg =~ /$test/i){
-      return 1;
-    }
-  }
+  return 1
+    if $msg =~ /(fserv\s+active)|(file\s+server\s+online)|(XDCC)/io;
 
-  return 0; # nope, not a fserv notice
+  return 0;
 }
 
-sub have_power {
-  my $nick;
-}
