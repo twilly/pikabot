@@ -74,10 +74,11 @@ sub animefeed_search {
     return;
   }
   eval {
-    $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef,
+    $dbh = DBI->connect("dbi:Pg:dbname=pikabot", undef, undef,
                         { RaiseError => 1,
                           PrintError => 0,
                           AutoCommit => 0 });
+    $dbh->do("SET search_path TO animefeed");
     $sth = $dbh->prepare("SELECT title,url,round(extract(epoch from age(current_timestamp, stamp))/86400) " .
                          "FROM items WHERE title ~* ? OR url ~* ? " .
                          "ORDER BY stamp DESC");

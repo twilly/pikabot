@@ -13,7 +13,11 @@
 -- You should have received a copy of the GNU General Public License
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-DROP TABLE items;
+
+-- animefeed is claims the "animefeed" schema
+DROP SCHEMA animefeed CASCADE;
+CREATE SCHEMA animefeed;
+SET search_path TO animefeed;
 
 CREATE TABLE items (
   tid SERIAL PRIMARY KEY,

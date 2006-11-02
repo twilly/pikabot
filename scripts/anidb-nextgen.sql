@@ -14,15 +14,11 @@
 -- You should have received a copy of the GNU General Public License
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-DROP VIEW search_cache;
 
-DROP TABLE search_hits CASCADE;
-DROP TABLE search_cache_table CASCADE;
-DROP TABLE details_cache CASCADE;
-DROP TABLE genre CASCADE;
-DROP TABLE titles CASCADE;
-DROP TABLE anime CASCADE;
-DROP TABLE genre_names CASCADE;
+-- AniDB is claims the "anidb" schema
+DROP SCHEMA anidb CASCADE;
+CREATE SCHEMA anidb;
+SET search_path TO anidb;
 
 -- Data
 CREATE TABLE anime (

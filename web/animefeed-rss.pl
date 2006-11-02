@@ -34,10 +34,11 @@ my $cgi = new CGI;
 my $xml = new XML::Writer(UNSAFE => 1);
 my ($dbh, $sth);
 eval {
-  $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef,
+  $dbh = DBI->connect("dbi:Pg:dbname=pikabot", undef, undef,
                       { RaiseError => 1,
                         PrintError => 0,
                         AutoCommit => 0 });
+  $dbh->do("SET search_path TO animefeed");
   $sth = $dbh->prepare("SELECT title,url,extract(epoch FROM stamp)," . 
                        "extract(month FROM stamp),extract(day FROM stamp),extract(year FROM stamp) " .
                        "FROM items WHERE age(current_timestamp, stamp) <= interval '2d' ORDER BY stamp DESC");
