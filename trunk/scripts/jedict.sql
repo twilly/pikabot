@@ -14,12 +14,16 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-DROP TABLE jedict CASCADE;
+DROP SCHEMA jedict CASCADE;
+CREATE SCHEMA jedict;
+SET search_path TO jedict;
 
-CREATE TABLE jedict (
+DROP TABLE jedict_main CASCADE;
+
+CREATE TABLE jedict_main (
 	kanji varchar(512),
 	kana varchar(512),
 	english varchar(1024)
 );
 
-CREATE INDEX kana_index ON jedict (kana);
+CREATE INDEX jedict_kana_index ON jedict_main (kana);

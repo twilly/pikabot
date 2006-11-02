@@ -60,7 +60,7 @@ sub irc_privmsg {
 sub trigger_jedict {
 	my ($server, $target, $to, $from, $address, $type, $string) = @_;
 	
-	my $jedict = new jedict('Database' => 'jedict') or do {
+	my $jedict = new jedict('Database' => 'pikabot') or do {
 			$server->command("msg $target \x0311jedict: Error pulling up jedict module.");
 			return;
 		};

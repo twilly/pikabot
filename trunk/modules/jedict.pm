@@ -37,6 +37,14 @@ sub new {
 	$connect_str .= ";host=$params{Server}" if defined $params{Server};
 	$self->{dbh} = DBI->connect($connect_str,$params{Username}, $params{Password},{ RaiseError => 1, PrintError => 0,AutoCommit => 0 }) or return undef;
 
+	$params{'Schema'} = exists $params{'Schema'} ? $params{'Schema'} : 'jedict';
+	eval {
+		$self->{dbh}->do("SET search_path TO $params{'Schema'}");
+	};
+	if($@){
+		$self->{dbh}->disconnect;
+		return undef;
+	}
 	return bless $self, $type;
 }
 
@@ -74,7 +82,7 @@ sub search_jap {
 	eval {
 		my $sth;
 
-		$sth = $self->{dbh}->prepare("SELECT * FROM jedict WHERE kanji LIKE ? OR kana LIKE ?");
+		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE kanji LIKE ? OR kana LIKE ?");
 		$sth->execute($string,$string);
 		while(my $row = $sth->fetchrow_arrayref()){
 		      push @results,
@@ -103,7 +111,7 @@ sub search_eng {
 	eval {
 		my $sth;
 		
-		$sth = $self->{dbh}->prepare("SELECT * FROM jedict WHERE english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
+		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
 		$sth->execute('% ' . $string . ' %',$string, '%/' . $string . '/%', '%/' . $string . ' %', '% ' . $string . '/%');
 		while (my $row = $sth->fetchrow_arrayref()) {
 			push @results, { 'kanji' => $row->[0], 'kana' => $row->[1], 'english' => $row->[2] };
@@ -123,31 +131,50 @@ sub search_eng {
 
 sub update_database {
 	my ($self, $file) = @_;
+	$self->{counter} = 0;
 	clear_pgdb($self) or die("FAIL: $!");
-	open(EDICT, "<$file");
-	while(<EDICT>) {
-		add_to_pgdb($self,encode("utf8", decode("EUC_JP", $_)));
+	eval {
+		my $kanji;
+		my $kana;
+		my $english;
+		open(EDICT, "<$file");;
+		$self->{dbh}->do("COPY jedict_main FROM STDIN");
+		while(<EDICT>) {
+			if ($_ =~ m/(.*)\s\[(.*)\]\s/o) {
+                		$kanji = $1;
+				$kana = $2;
+                		$_ =~ m/\s\/(.*)\/\n$/o;
+                		$english = $1
+        		} else {
+                		if ($_ =~ m/(.*)\s\/(.*)\/\n$/o) {
+					$kanji = "1337";
+                	 	        $kana = $1;
+					$english = $2;
+                		}
+			}
+			$self->{dbh}->pg_putline(encode("utf8",decode("EUC_JP","$kanji\t$kana\t$english\n")));
+			$self->{counter}++;
+		}
+		$self->{dbh}->pg_endcopy();
+		$self->{dbh}->commit();
+		close(EDICT);
+	};
+	if ($@) {
+		#warn "jedict.pm: database error: $@\n";
+		eval { $self->{dbh}->rollback() };
+		return 0;
 	}
-	close(EDICT);
+	return $self->{counter};
 }
 
 sub clear_pgdb {	
 	my $self = shift;
 	eval {
-		my $sth;
-		$sth = $self->{dbh}->prepare("DROP TABLE jedict;");
-		$sth->execute();
-		$sth->finish();
-
-		$sth = $self->{dbh}->prepare("CREATE TABLE jedict ( kanji varchar(512), kana varchar(512), english varchar(1024) );");
-		$sth->execute();
-		$sth->finish();
-
-		$sth = $self->{dbh}->prepare("CREATE INDEX kana_index ON jedict (kana);");
-		$sth->execute();
-		$sth->finish();
-
-		#$sth->{dbh}->commit();
+		$self->{dbh}->do("DROP TABLE jedict_main");
+		$self->{dbh}->do("CREATE TABLE jedict_main ( kanji varchar(512), kana varchar(512), english varchar(1024) )");
+		$self->{dbh}->do("CREATE INDEX jedict_kana_index ON jedict_main (kana)");
+	
+		$self->{dbh}->commit();
 	};
   	if($@){
     		#warn "jedict.pm: database error: $@\n";
@@ -155,38 +182,5 @@ sub clear_pgdb {
 		return 0;
   	}
 	return 1;
-}
-
-sub add_to_pgdb {
-	my ($self, $query) = @_;
-	my $kanji;
-	my $kana;
-	my $english;
-
-	if ($query =~ m/(.*)\s\[(.*)\]\s/) {
-                $kanji = $1;
-		$kana = $2;
-                $query =~ m/\s\/(.*)\/\n$/;
-                $english = $1
-        } else {
-                if ($query =~ m/(.*)\s\/(.*)\/\n$/) {
-			$kanji = "1337";
-                        $kana = $1;
-			$english = $2;
-                }
-        }
-	eval {
-		my $sth;
-		$sth = $self->{dbh}->prepare("INSERT INTO jedict VALUES (?, ?, ?)");
-      		$sth->execute($kanji,$kana,$english);
-	    	$sth->finish();
-
-    		# commit transaction
-    		$self->{dbh}->commit();
-  	};
-  	if($@){
-    		#warn "jedict.pm: database error: $@\n";
-    		eval { $self->{dbh}->rollback() };
-  	}
 }
 1;
