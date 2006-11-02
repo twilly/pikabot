@@ -49,6 +49,16 @@ sub new {
                  { RaiseError => 1, PrintError => 0,  AutoCommit => 0 })
       or return undef;
 
+  # change to anidb schema
+  $params{'Schema'} = exists $params{'Schema'} ? $params{'Schema'} : 'anidb';
+  eval {
+    $self->{dbh}->do("SET search_path TO $params{'Schema'}");
+  };
+  if($@){
+    $self->{dbh}->disconnect;
+    return undef;
+  }
+
   # make a LWP object for quering anidb
   my $ua = LWP::UserAgent->new() or return undef;
   $ua->timeout(30);

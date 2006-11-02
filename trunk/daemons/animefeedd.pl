@@ -38,12 +38,13 @@ my $twig = new XML::Twig(
 my ($dbh, $item_sth); # needs to be accessed by twig handlers
 while(1) {
   ($dbh, $item_sth) = ();
-  $dbh = DBI->connect("dbi:Pg:dbname=animefeed", undef, undef,
+  $dbh = DBI->connect("dbi:Pg:dbname=pikabot", undef, undef,
                       { RaiseError => 1,
                         PrintError => 0,
                         AutoCommit => 0 }) or
          do { $dbh = undef };
   eval {
+    $dbh->do("SET search_path TO animefeed");
     $item_sth = $dbh->prepare('INSERT INTO items VALUES (DEFAULT, ?, ?, \'now\')');
 
     # Get the feeds
