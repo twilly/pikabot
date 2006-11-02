@@ -34,11 +34,12 @@ foreach $an (0 .. $#ARGV) {
 	$string .= " " unless $an == 0;
 	$string .= "$ARGV[$an]";
 }
-my $jedict = jedict->new('Database' => 'jedict') or die "jedict creation error: $!\n";
+my $jedict = jedict->new('Database' => 'pikabot') or die "jedict creation error: $!\n";
 
 if ($type eq "update") {
-	print "$string\n";
-	$jedict->update_database($string) or die("FAIL: $!");
+	print "Parsing file to database. (This may take some time)\n";
+	my $added = $jedict->update_database($string) or die("FAIL: $!");
+	print "Added $added lines\n";
 } else {
 	if ($type eq "eng" || $type eq "jap") {
 		my $found = 0;
