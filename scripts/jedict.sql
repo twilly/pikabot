@@ -18,8 +18,6 @@ DROP SCHEMA jedict CASCADE;
 CREATE SCHEMA jedict;
 SET search_path TO jedict;
 
-DROP TABLE jedict_main CASCADE;
-
 CREATE TABLE jedict_main (
 	kanji varchar(512),
 	kana varchar(512),
