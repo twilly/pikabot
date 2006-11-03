@@ -66,7 +66,10 @@ sub irc_genmsg {
 }
 
 sub trigger_info {
-  return "\x0313PikaBot <http://code.google.com/p/pikabot/> SVN Revision " . '$Revision$';
+  my $keywords = '$Revision$';
+  $keywords =~ /Revision:\s+(\d+)/;
+  my $rev = $1;
+  return "\x0313PikaBot <http://code.google.com/p/pikabot/> SVN Revision $rev";
 }
 
 sub trigger_uptime {
