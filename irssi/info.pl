@@ -34,6 +34,7 @@ Irssi::signal_add('setup changed', 'load_globals');
 
 my (%active_chans, $starttime);
 $starttime = time();
+load_globals();
 
 sub load_globals {
   map {
