@@ -36,8 +36,7 @@ my @adverbs = ('vigorously', 'powerfully', 'lovingly',
 	       'bountifully', 'thoughtlessly', 'timidly',
 	       'satisfyingly', 'luxuriantly', 'sweetly',
 	       'happily', 'enthusiastically');
-my ($starttime, %fun_active_chans, @pikas, $only_channel);
-$starttime = time();
+my (%fun_active_chans, @pikas, $only_channel);
 load_globals();
 
 Irssi::signal_add('event privmsg', 'irc_privmsg');
@@ -60,7 +59,7 @@ sub irc_notice {
   my ($target, $cmd);
 
   # if non-public, target the sender
-  if($message =~ /^\s*!(calc|uptime)/i){
+  if($message =~ /^\s*!(calc)/i){
     $target = $from;
     $cmd = 'notice';
   }
@@ -106,7 +105,6 @@ sub dispatch_message {
   my %chan_dispatch =
     ( '^\s*!pika' => \&trigger_pika,
       '^\s*!insult' => \&trigger_insult,
-      '^\s*!uptime' => \&trigger_uptime,
       '^\s*!huggle([sz])?[^-]' => \&trigger_huggle,
       '^\s*!calc' => \&trigger_calc,
       '^\s*!fortune' => \&trigger_fortune,
@@ -129,21 +127,6 @@ sub dispatch_message {
   }
 
   return @text;
-}
-
-sub trigger_uptime {
-  my ($server, $to, $from, $message) = @_;
-  my $script_uptime = secs2texttime(time() - $starttime);
-  my $local_uptime = '?:?';
-  if(open(FH, '/proc/uptime')){
-    my $l = <FH>;
-    if($l =~ /^(\d+\.\d+)/){
-      $local_uptime = secs2texttime(int($1 + 0.5));
-    }
-    close(FH);
-  }
-  return [ "\x0306Bot Uptime [$script_uptime]\x0310 " .
-	   "System Uptime [$local_uptime]" ];
 }
 
 sub trigger_pika {
@@ -264,28 +247,6 @@ sub trigger_calc {
 # Picks a random color except white and black
 sub rand_color {
   return sprintf("\x03%02d", (int rand 13) + 2);
-}
-
-sub secs2texttime {
-  my $sec = shift;
-  $sec = int($sec + 0.5); # round second
-  my $days = int($sec / 86400); $sec %= 86400;
-  my $hours = int($sec / 3600); $sec %= 3600;
-  my $minutes = int($sec / 60); $sec %= 60;
-
-  my $base = sprintf("%d:%02d:%02d", $hours, $minutes, $sec);
-
-  if($days <= 0){
-    return $base;
-  }
-
-  if($days != 1){
-    return sprintf("%d days ", $days) . $base;
-  } else {
-    return ("1 day " . $base);
-  }
-
-  return "~bug~";
 }
 
 sub find_target {
