@@ -81,7 +81,7 @@ sub trigger_jedict {
 		#$anidb->close();
 		#return;
 	#}
-	if ($#result > 0) {
+	if ($#result > 0 || $#result == 0) {
 		my $header;
 		my $counter = 0;
 		if ($#result > 2) {

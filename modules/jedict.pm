@@ -111,8 +111,13 @@ sub search_eng {
 	eval {
 		my $sth;
 		
-		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
-		$sth->execute('% ' . $string . ' %',$string, '%/' . $string . '/%', '%/' . $string . ' %', '% ' . $string . '/%');
+		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE english LIKE ? OR english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
+		$sth->execute('% ' . $string . ' %',
+				$string,
+				 '%/' . $string . '/%',
+				 '%/' . $string . ' %',
+				 '%/' . $string . '%',
+				 '% ' . $string . '/%');
 		while (my $row = $sth->fetchrow_arrayref()) {
 			push @results, { 'kanji' => $row->[0], 'kana' => $row->[1], 'english' => $row->[2] };
 		}
