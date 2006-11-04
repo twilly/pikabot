@@ -58,12 +58,6 @@ sub irc_notice {
   my ($server, $message, $from, $address, $to) = @_;
   my ($target, $cmd);
 
-  # if non-public, target the sender
-  if($message =~ /^\s*!(calc)/i){
-    $target = $from;
-    $cmd = 'notice';
-  }
-
   # if no target, default to the channel
   # only one active channel is allowed
   if(not defined $target){
@@ -106,7 +100,6 @@ sub dispatch_message {
     ( '^\s*!pika' => \&trigger_pika,
       '^\s*!insult' => \&trigger_insult,
       '^\s*!huggle([sz])?[^-]' => \&trigger_huggle,
-      '^\s*!calc' => \&trigger_calc,
       '^\s*!fortune' => \&trigger_fortune,
       '^\s*!huggle-glom(s|p|ps)?' => \&trigger_huggle_glomp);
   # Check if it was for the channel we joined...
@@ -225,20 +218,6 @@ sub trigger_huggle_glomp {
       "\x0313*^-^* $rc[0]$from $rc[1]$adverbs[int rand $#adverbs] " .
 	"$rc[2]huggle *GLOMPS* $rc[3]$to_huggle " .
 	  "\x0313*^-^*";
-  }
-
-  return \@msg;
-}
-
-sub trigger_calc {
-  my ($server, $to, $from, $message) = @_;
-  my @msg;
-  for($message){
-    s/[^*+\/\(\) \.0-9-]+//g;
-    s/^\s+//;
-    my $res = eval("($_) || 'error'");
-    $res = $res ? $res : 'error';
-    push @msg, "$_ = $res";
   }
 
   return \@msg;
