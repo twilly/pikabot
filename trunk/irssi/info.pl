@@ -28,11 +28,12 @@ $VERSION = '0.1';
            'license'     => 'GPL v2' );
 
 Irssi::settings_add_str($IRSSI{'name'}, 'info_channels', '');
+Irssi::settings_add_str($IRSSI{'name'}, 'pikabot_version', '');
 Irssi::signal_add('event privmsg', 'irc_privmsg');
 Irssi::signal_add('message irc notice', 'irc_notice');
 Irssi::signal_add('setup changed', 'load_globals');
 
-my (%active_chans, $starttime);
+my (%active_chans, $starttime, $version);
 $starttime = time();
 load_globals();
 
@@ -40,6 +41,8 @@ sub load_globals {
   map {
     $active_chans{uc($_)} = 1;
   } quotewords(',', 0, Irssi::settings_get_str('info_channels'));
+  $version = Irssi::settings_get_str('pikabot_version');
+  $version = ' ' if not defined $version;
 }
 
 sub irc_notice {
@@ -67,10 +70,7 @@ sub irc_genmsg {
 }
 
 sub trigger_info {
-  my $keywords = '$Revision$';
-  $keywords =~ /Revision:\s+(\d+)/;
-  my $rev = $1;
-  return "\x0313PikaBot <http://code.google.com/p/pikabot/> SVN Revision $rev";
+  return "\x0313PikaBot <http://code.google.com/p/pikabot/> $version";
 }
 
 sub trigger_uptime {
