@@ -19,7 +19,7 @@ package jedict;
 use strict;
 use Encode;
 use DBI;
-
+use utf8;
 sub new {
 	my $type = shift;
 	my %params = @_;
@@ -59,14 +59,22 @@ sub DESTROY {
 	jedict::close($self);
 }
 sub search {
-	my ($self, $type, $string) = @_;
+	my ($self, $string, $type) = @_;
 	my $result;
-
+	
 	if ($type == 1 or $type eq 'jap' or $type eq 'jpn') {
 		$result = search_jap($self, $string);
 	}
 	if ($type == 2 or $type eq 'eng') {
 		$result = search_eng($self, $string);
+	}
+	if (!$type) {
+		utf8::decode($string);
+		if ($string =~ /(\p{Katakana}|\p{Hiragana}|\p{InCJKUnifiedIdeographs})+/) {
+			$result = search_jap($self, $string);
+		} else {
+			$result = search_eng($self, $string);
+		}
 	}
 	
 	if(defined $result){
@@ -111,12 +119,11 @@ sub search_eng {
 	eval {
 		my $sth;
 		
-		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE english LIKE ? OR english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
+		$sth = $self->{dbh}->prepare("SELECT * FROM jedict_main WHERE english LIKE ? OR english LIKE ? or english LIKE ? OR english LIKE ? OR english LIKE ?");
 		$sth->execute('% ' . $string . ' %',
 				$string,
 				 '%/' . $string . '/%',
 				 '%/' . $string . ' %',
-				 '%/' . $string . '%',
 				 '% ' . $string . '/%');
 		while (my $row = $sth->fetchrow_arrayref()) {
 			push @results, { 'kanji' => $row->[0], 'kana' => $row->[1], 'english' => $row->[2] };

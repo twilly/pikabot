@@ -19,12 +19,12 @@
 
 use warnings;
 use strict;
-
+use utf8;
 use lib "../modules";
 use jedict;
 
 if ($#ARGV < 1) {
-	warn "Usage: $0 [jap|eng] [search string]\nUsage: $0 update [edict file]\n";
+	warn "Usage: $0 [jap|eng|0] [search string]\nUsage: $0 update [edict file]\n";
 	exit 1;
 }
 my $type = shift;
@@ -43,7 +43,7 @@ if ($type eq "update") {
 } else {
 	if ($type eq "eng" || $type eq "jap") {
 		my $found = 0;
-		foreach my $res ($jedict->search($type,$string)){
+		foreach my $res ($jedict->search($string, $type)){
 			$found = 1;
 			if(defined $res){
 				print "Kanji: " . ($res->{kanji} eq 1337 ? "N/A" : $res->{kanji}) . "\tKana: $res->{kana}\tEnglish: $res->{english}\n";
@@ -51,8 +51,19 @@ if ($type eq "update") {
 		}
 		print "Your search: \"$string\" returned no results.\n" unless $found;
 	} else {
-		warn "Usage: $0 [jap|eng] [search string]\nUsage: $0 update [edict file]\n";
-		exit 1;
+		if ($type == 0) {
+			my $found = 0;
+			foreach my $res ($jedict->search($string)) {
+				$found = 1;
+				if (defined $res) {
+					print "Kanji: " . ($res->{kanji} eq 1337 ? "N/A" : $res->{kanji}) . "\tKana: $res->{kana}\tEnglish: $res->{english}\n";
+				}
+			}
+			print "No results\n" unless $found;
+		} else {
+			warn "Usage: $0 [jap|eng|0] [search string]\nUsage: $0 update [edict file]\n";
+			exit 1;
+		}
 	}
 }
 exit 0;
