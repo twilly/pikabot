@@ -44,13 +44,10 @@ sub irc_privmsg {
   my ($to, $message) = split(/\s+:/, $data, 2);
   my ($me, $target) = ($server->{'nick'}, find_target($to, $from));
 
-  #$message =~ m/^[^!]*!lookup\s+(eng|jap)\s+(.*)/i;
-	#Irssi::print("message: $message\ttype: $1\tstring: $2");
-
   # Check if it was for the channel we joined...
   if(uc($to) eq uc($me) or $jedict_active_chans{uc($to)}){
-    if($message =~ /^[^!]*!(lookup|jedict)\s+(eng|jap|jpn)\s+(.+)/i){
-      trigger_jedict($server, $target, $to, $from, $address, $2, $3);
+    if ($message =~ /^[^!]*!(lookup|jedict)\s+(.+)/i) {
+      trigger_jedict($server, $target, $to, $from, $address, $2);
     }
   }
 
@@ -58,7 +55,7 @@ sub irc_privmsg {
 }
 
 sub trigger_jedict {
-	my ($server, $target, $to, $from, $address, $type, $string) = @_;
+	my ($server, $target, $to, $from, $address, $string) = @_;
 	
 	my $jedict = new jedict('Database' => 'pikabot') or do {
 			$server->command("msg $target \x0311jedict: Error pulling up jedict module.");
@@ -70,21 +67,16 @@ sub trigger_jedict {
 	$string =~ s/^\s+//;
 	$string =~ s/\s+$//;
 	
-	my @result = $jedict->search($type,$string);
+	my @result = $jedict->search($string);
 	if($#result < 0){
 		$server->command("msg $target jedict: No Results");
 		$jedict->close();
 		return;
 	}
-	#if($#titles > 2){
-		#$server->command("msg $target AniDB: Too many hits. Please be more specific.");
-		#$anidb->close();
-		#return;
-	#}
-	if ($#result > 0 || $#result == 0) {
+	if ($#result >= 0) {
 		my $header;
 		my $counter = 0;
-		if ($#result > 2) {
+		if ($#result > 1) {
 			$header = "\x0313jedict Results (2 of $#result):\x0311";
 		} else {
 			$header = "\x0313jedict Results:\x0311";
