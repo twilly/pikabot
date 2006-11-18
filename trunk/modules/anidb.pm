@@ -490,8 +490,8 @@ sub anidb_anime_parse {
       'Genre:'      =>
       sub {
         my $str = $_[1];
-        $str =~ s/ - .+$//;
-        push @{$info{'genres'}}, split(/, /, $str);
+        $str =~ s/\s+-\s+.*$//;
+        push @{$info{'genres'}}, split(/,\s+/, $str);
       },
 
       'Type:' =>
