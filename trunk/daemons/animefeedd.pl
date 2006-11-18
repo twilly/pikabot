@@ -23,6 +23,9 @@ use LWP::Simple;
 use URI::Escape;
 use DBI;
 
+use File::Basename;
+my $script = basename($0);
+
 # Configurable
 my $update_interval = 30;
 my %feeds = ( 'Tokyo Toshokan' => { 'url' => 'http://tokyotosho.com/rss.php' },
@@ -51,13 +54,13 @@ while(1) {
     foreach my $feed_name (keys %feeds){
       my $ts = `date`;
       chomp $ts;
-      print "$ts: Notice: Processing `$feed_name'.\n";
+      print "$ts: $script: Notice: Processing `$feed_name'.\n";
       eval {
         $twig->parse(get($feeds{$feed_name}{url}));
         $twig->purge;
       };
       if($@){
-        warn "Error: Failed to process `$feed_name'.\n";
+        warn "$script: Error: Failed to process `$feed_name': $@\n";
         $dbh->rollback;
       }
     }
@@ -68,7 +71,7 @@ while(1) {
     do { $secs_left -= sleep($secs_left) } while($secs_left > 0);
   };
   if($@){
-    warn "Database error: $@\n";
+    warn "$script: Database error: $@\n";
     sleep(60);
     next;
   }
@@ -88,12 +91,21 @@ sub process_item {
     return;
   }
 
-  # Execute insert without complaining about errors.
-  {
-    local $item_sth->{RaiseError};
-    $item_sth->execute($title, $url);
+  # See if it's in the database and short-circut so we won't complain
+  # later about a failed but dont-care DB insertion.
+  my $preitem_sth = $dbh->prepare("SELECT * FROM items WHERE url = ?");
+  my $nrows = $preitem_sth->execute($url);
+  if($nrows == 0){
+    # Execute insert without a complete abort
+    {
+      local $item_sth->{RaiseError};
+      $item_sth->execute($title, $url)
+        or do {
+          warn "$script: Warning: database failed to insert \"$title\" with url \"$url\".\n";
+        };
+    }
+    $dbh->commit;
   }
-  $dbh->commit;
 
   $twig->purge;
 }
