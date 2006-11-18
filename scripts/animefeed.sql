@@ -14,7 +14,7 @@
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
--- animefeed is claims the "animefeed" schema
+-- animefeed claims the "animefeed" schema
 DROP SCHEMA animefeed CASCADE;
 CREATE SCHEMA animefeed;
 SET search_path TO animefeed;
