@@ -386,16 +386,6 @@ sub test_aid_link {
   return 0;
 }
 
-sub match_two_row {
-  my @list = @{$_[0]->content_array_ref()};
-  if(scalar @list == 2 and
-     $list[0]->tag() eq 'td' and
-     $list[1]->tag() eq 'td'){
-    return 1;
-  }
-  return 0;
-}
-
 # inserts an anidb anime page into the local database
 # typical usage: anime_insert($self, anidb_anime_parse(HTML))
 sub anime_insert {
@@ -476,65 +466,75 @@ sub anidb_anime_parse {
   my ($self, $content) = @_;
   my %info;
   my %translation =
-    ( 'Title:'      =>
-      sub {
-        $info{'maintitle'} = decode_entities($_[1]);
-        $info{'maintitle'} =~ s/\s+\(\d+\)\s*$//; # get rid of that ID junk
-        add_title($_[0], $info{'maintitle'});
-      },
+    ( 'Title'      =>
+        sub {
+          $info{'maintitle'} = decode_entities($_[1]);
+          $info{'maintitle'} =~ s/\s+\(\d+\)\s*$//; # get rid of that ID junk
+          add_title($_[0], $info{'maintitle'});
+        },
+      'Kanji/Kana' => \&add_title,
+      'English'    => \&add_title,
+      'Synonym' => 
+        sub {
+          my ($infohref, $value) = @_;
+          map { add_title($infohref, $_) } split(/,\s*/, $value);
+        },
 
-      'Jap. Kanji:' => \&add_title,
-      'English:'    => \&add_title,
-      'Kanji/Kana:' => \&add_title,
+      'Genre'      =>
+        sub {
+          my $str = $_[1];
+          $str =~ s/\s+-\s+.*$//;
+          push @{$info{'genres'}}, split(/,\s+/, $str);
+         },
 
-      'Genre:'      =>
-      sub {
-        my $str = $_[1];
-        $str =~ s/\s+-\s+.*$//;
-        push @{$info{'genres'}}, split(/,\s+/, $str);
-      },
+      'Type' =>
+        sub { $info{'type'} = $_[1] },
 
-      'Type:' =>
-      sub { $info{'type'} = $_[1] },
+      'Episodes' =>
+        sub { $info{'numeps'} = $_[1] },
 
-      'Episodes:' =>
-      sub { $info{'numeps'} = $_[1] },
+      'URL' =>
+        sub {
+          $info{'url'} = $_[1];
+          if($info{'url'} eq ''){ $info{'url'} = undef }
+        },
 
-      'URL:' =>
-      sub {
-        $info{'url'} = $_[1];
-        if($info{'url'} eq ''){ $info{'url'} = undef }
-      },
+      'Rating' =>
+        sub { if($_[1] =~ /(\d+\.\d+)/){ $info{'rating'} = $1 } },
 
-      'Rating:' =>
-      sub { if($_[1] =~ /(\d+\.\d+)/){ $info{'rating'} = $1 } },
+      'Year' =>
+        sub {
+          my ($info, $val) = @_;
+          if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})\s+till\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/){
+            my @cpy = ($1, $2, $3, $4, $5, $6);
+            map { $_ =~ s/^0+// } @cpy;
+            $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
+            $info->{'enddate'} = "$cpy[4]/$cpy[3]/$cpy[5]";
+          }
+        },
 
-      'Year:' =>
-      sub {
-        my ($info, $val) = @_;
-        if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})\s+till\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/){
-          my @cpy = ($1, $2, $3, $4, $5, $6);
-          map { $_ =~ s/^0+// } @cpy;
-          $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
-          $info->{'enddate'} = "$cpy[4]/$cpy[3]/$cpy[5]";
-        }
-      },
-
-      'Tmp. Rating:' =>
-      sub {
-        if(not defined $info{'rating'} and $_[1] =~ /(\d+\.\d+)/){
-          $info{'rating'} = $1
-        }
-      }
+      'Tmp. Rating' =>
+        sub {
+          if(not defined $info{'rating'} and $_[1] =~ /(\d+\.\d+)/){
+            $info{'rating'} = $1
+          }
+         }
     );
 
+  # This is the core parser for a show page.
+  # The trick here is to locate the definition piece and find field/value
+  # pairs. Each pair is passed into a translation table that changes the data
+  # as it sees fit.
   my $tree = HTML::TreeBuilder->new_from_content($content);
-  foreach my $match ($tree->look_down('_tag', 'tr', \&match_two_row)){
-    my @row = $match->content_list();
+  my $anime_deflist = $tree->look_down('_tag', 'div', 'class', qr/.*g_definitionlist\s+data.*/i)
+    or do { return undef }; # we're interested in the core anime info
+  foreach my $field ($anime_deflist->look_down('_tag', 'th', 'class', qr/field/i)){
+    if(not $field->parent()){ next } # this shouldn't arise
+    my $value = $field->parent()->look_down('_tag', 'td', 'class', qr/value/i)
+      or next; # this shouldn't arise either
     my ($left, $right) = map {
       $_ = decode_entities(space_collapse($_->as_text()));
-    } $match->content_list();
-    #print "`$left' -> `$right'\n";
+    } ($field, $value);
     if(defined $translation{$left}){
       $translation{$left}->(\%info, $right);
     }
