@@ -325,25 +325,13 @@ sub anidb_search_parse {
   my $tree = HTML::TreeBuilder->new_from_content($content);
   my @titles;
 
-  my $single_hit = $tree->look_down
-    ('_tag', 'h1',
-     sub { return 1 if ($_[0]->content_array_ref->[0] =~ /^Show\s+Anime/i); return 0 });
-  if(defined $single_hit){
-    # Single hit. Return the result.
-    my ($aid, $title) = (0, '[none]');
-    if($single_hit->content_array_ref->[0] =~ /^Show\s+Anime\s+-\s+(.+)/i){
-      $title = $1;
+  if($tree->look_down('_tag' => 'input', 'name' => 'show', 'value' => 'anime')){
+    # Single hit. Parse the page and return a single-element array with the title
+    if(my $ele_aid = $tree->look_down('_tag' => 'input', 'name' => 'aid')){
+      my $page = anidb_anime_parse($self, $content);
+      anime_insert($self, $page);
+      push @titles, { 'id' => $ele_aid->attr('value'), 'title' => $page->{'maintitle'} };
     }
-    my $link;
-    if(defined ($link = $tree->look_down('_tag', 'a', \&test_aid_link)) and
-       $link->attr('href') =~ /aid=(\d+)/){
-      $aid = $1
-    }
-
-    # We have the actual page, push it to the local db
-    anime_insert($self, anidb_anime_parse($self, $content));
-
-    push @titles, { 'id' => $aid, 'title' => $title };
   } else {
     # Multiple hits. Lets walk down the table.
     my @hits = $tree->look_down('_tag', 'tr', \&test_tr);
