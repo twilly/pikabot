@@ -132,7 +132,7 @@ sub trigger_anidb {
         my $prevstate = $msgbuff;
         my $item;
         $item .= " ID:$title->{id} [\x0312 $title->{title}\x0311 ]";
-        if(length($msgbuff . $item) > 256){ # prevent overflow
+        if(length($msgbuff . $item) > 384){ # prevent overflow
           $server->command("msg $target $prevstate");
           $msgbuff = $header . $item;
         } else {
@@ -160,16 +160,23 @@ sub trigger_anidb {
   }
 
   # Print out requested anime info
-  my $msgbuff .= "\x0305{ID:$anime->{aid}}\x0313 ";
-  foreach my $title (@{$anime->{titles}}){
-    $msgbuff .= "<$title> ";
+  my @msgpieces = ();
+  push @msgpieces, "\x0305{ID:$anime->{aid}} ";
+  map { push @msgpieces, "\x0313<$_> " } @{$anime->{titles}};
+  push @msgpieces, "\x0311Genre: [ @{$anime->{genres}} ] " if $#{$anime->{genres}} >= 0;
+  push @msgpieces, "\x0311#Eps: [ $anime->{numeps} ] " if defined $anime->{numeps};
+  push @msgpieces, "\x0311Rating: [ $anime->{rating} ] " if defined $anime->{rating};
+  push @msgpieces, "\x0311URL: [ $anime->{url} ] " if defined $anime->{url};
+  push @msgpieces, "\x0311AniDB: [ \x0312http://anidb.info/a$anime->{aid}\x0311 ]";
+  my $msgbuff;
+  while($#msgpieces >= 0){
+    if(length ($msgbuff . $msgpieces[0]) > 384){
+      $server->command("msg $target $msgbuff");
+      $msgbuff = shift @msgpieces;
+    } else {
+      $msgbuff .= shift @msgpieces;
+    }
   }
-  $msgbuff .= "\x0311";
-  $msgbuff .= "Genre: [ @{$anime->{genres}} ] " if $#{$anime->{genres}} >= 0;
-  $msgbuff .= "#Eps: [ $anime->{numeps} ] " if defined $anime->{numeps};
-  $msgbuff .= "Rating: [ $anime->{rating} ] " if defined $anime->{rating};
-  $msgbuff .= "URL: [ $anime->{url} ] " if defined $anime->{url};
-  $msgbuff .= "AniDB: [ \x0312http://anidb.info/a$anime->{aid}\x0311 ]";
   $server->command("msg $target $msgbuff");
 
   $anidb->close();
