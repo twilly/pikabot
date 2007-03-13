@@ -40,18 +40,15 @@ my $twig = new XML::Twig(
 # Core loop: Get the feeds, process them, and then sleep for the minimal TTL.
 my ($dbh, $item_sth); # needs to be accessed by twig handlers
 while(1) {
-  ($dbh, $item_sth) = ();
-  $dbh = DBI->connect("dbi:Pg:dbname=pikabot", undef, undef,
-                      { RaiseError => 1,
-                        PrintError => 0,
-                        AutoCommit => 0 }) or
-         do { $dbh = undef };
   eval {
-    $dbh->do("SET search_path TO animefeed");
-    $item_sth = $dbh->prepare('INSERT INTO items VALUES (DEFAULT, ?, ?, \'now\')');
-
     # Get the feeds
+    $dbh = undef;
     foreach my $feed_name (keys %feeds){
+      $dbh = connect_database() if not defined $dbh;
+      if(not defined $dbh){
+        warn "$script: Error: failed to connect to database.\n";
+        next;
+      }
       my $ts = `date`;
       chomp $ts;
       print "$ts: $script: Notice: Processing `$feed_name'.\n";
@@ -62,6 +59,9 @@ while(1) {
       if($@){
         warn "$script: Error: Failed to process `$feed_name': $@\n";
         $dbh->rollback;
+        # force a reconnect
+        $dbh->disconnect;
+        $dbh = undef;
       }
     }
     $item_sth->finish;
@@ -75,6 +75,23 @@ while(1) {
     sleep(60);
     next;
   }
+}
+
+sub connect_database {
+ my $dbh;
+ $dbh = DBI->connect("dbi:Pg:dbname=pikabot", undef, undef,
+                    { RaiseError => 1,
+                      PrintError => 0,
+                      AutoCommit => 0 }) or return undef;
+ eval {
+  $dbh->do("SET search_path TO animefeed");
+  $item_sth = $dbh->prepare('INSERT INTO items VALUES (DEFAULT, ?, ?, \'now\')');
+ };
+ if($@){
+  $dbh->disconnect;
+  return undef;
+ }
+ return $dbh;
 }
 
 # Called for each item in the RSS channel
@@ -119,4 +136,3 @@ sub process_ttl {
     print "Notice: Set update interval to $update_interval minutes.\n";
   }
 }
-
