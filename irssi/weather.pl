@@ -49,7 +49,7 @@ sub irc_privmsg {
 
   # Check if it was for the channel we joined...
   if(uc($to) eq uc($me) or $deref_active_chans{uc($to)}){
-    if($message =~ /^\s*!weather\s+(\S+)/i){
+    if($message =~ /^\s*!weather\s+(.+)\s*/i){
       trigger_weather($server, $target, $to, $from, $address, $1);
     }
   }
