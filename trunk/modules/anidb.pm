@@ -454,13 +454,14 @@ sub anidb_anime_parse {
   my ($self, $content) = @_;
   my %info;
   my %translation =
-    ( 'Title'      =>
+    ( 'Main Title'      =>
         sub {
           $info{'maintitle'} = decode_entities($_[1]);
-          $info{'maintitle'} =~ s/\s+\(\d+\)\s*$//; # get rid of that ID junk
+          $info{'maintitle'} =~ s/\s+\(a?\d+\)\s*$//; # get rid of that ID junk
           add_title($_[0], $info{'maintitle'});
         },
       'Kanji/Kana' => \&add_title,
+      'Official Title' => \&add_title,
       'English'    => \&add_title,
       'Synonym' => 
         sub {
@@ -520,6 +521,11 @@ sub anidb_anime_parse {
     if(not $field->parent()){ next } # this shouldn't arise
     my $value = $field->parent()->look_down('_tag', 'td', 'class', qr/value/i)
       or next; # this shouldn't arise either
+    # 'Official Title' now includes little icons that we need to ignore.
+    if($value->look_down('_tag', 'div', 'class', qr/icons/) and
+       $value->look_down('_tag', 'span', 'class', undef)){
+      $value = $value->look_down('_tag', 'span', 'class', undef);
+    }
     my ($left, $right) = map {
       $_ = decode_entities(space_collapse($_->as_text()));
     } ($field, $value);
