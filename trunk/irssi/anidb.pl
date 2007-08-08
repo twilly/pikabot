@@ -170,7 +170,7 @@ sub trigger_anidb {
   push @msgpieces, "\x0311AniDB: [ \x0312http://anidb.info/a$anime->{aid}\x0311 ]";
   my $msgbuff;
   while($#msgpieces >= 0){
-    if(length ($msgbuff . $msgpieces[0]) > 384){
+    if(length ($msgbuff . $msgpieces[0]) > 348){
       $server->command("msg $target $msgbuff");
       $msgbuff = shift @msgpieces;
     } else {
