@@ -23,6 +23,10 @@ use strict;
 use lib "../modules";
 use anidb;
 
+# go full UTF
+use utf8;
+binmode STDOUT, ":utf8";
+
 if($#ARGV < 0){
   warn "Usage: $0 [title] <optional more titles>\n";
   exit 1;
