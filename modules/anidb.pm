@@ -1,4 +1,4 @@
-# anidb.pm: AniDB screen-scraper module
+# anidb.pm: AniDB screen-scraper module (UDP protocol sucks ass)
 #
 # Copyright (C) 2006   Tristan Willy <tristan.willy at gmail.com>
 #
@@ -454,22 +454,22 @@ sub anidb_anime_parse {
   my ($self, $content) = @_;
   my %info;
   my %translation =
-    ( 'Main Title'      =>
+    ( 'Main Title'      => # XXX: Dead?
         sub {
           $info{'maintitle'} = decode_entities($_[1]);
           $info{'maintitle'} =~ s/\s+\(a?\d+\)\s*$//; # get rid of that ID junk
           add_title($_[0], $info{'maintitle'});
         },
-      'Kanji/Kana' => \&add_title,
+      'Kanji/Kana' => \&add_title, # XXX: Dead?
       'Official Title' => \&add_title,
-      'English'    => \&add_title,
+      'English'    => \&add_title, # XXX: Dead?
       'Synonym' => 
         sub {
           my ($infohref, $value) = @_;
           map { add_title($infohref, $_) } split(/,\s*/, $value);
         },
 
-      'Genre'      =>
+      'Categories'      => # Genre is now Catagories
         sub {
           my $str = $_[1];
           $str =~ s/\s+-\s+.*$//;
@@ -477,10 +477,14 @@ sub anidb_anime_parse {
          },
 
       'Type' =>
-        sub { $info{'type'} = $_[1] },
-
-      'Episodes' =>
-        sub { $info{'numeps'} = $_[1] },
+        sub {
+          if($_[1] =~ /([^,]+),\s*(\d+)\s*episodes/){
+            $info{'type'}   = $1;
+            $info{'numeps'} = $2;
+          } else {
+            $info{'type'} = $_[1];
+          }
+        },
 
       'URL' =>
         sub {
