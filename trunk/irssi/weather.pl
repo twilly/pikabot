@@ -80,13 +80,10 @@ sub get_location_id {
     map {
       if($_->tagName eq 'loc'){
         $hits++;
-        $loc = $_;
+        $loc = $_ if not defined $loc;
       }
     } @{$search_doc->documentElement()->childNodes()};
-    if($hits > 1){
-      $server->command("msg $target Too many hits. Be more specific.");
-      return;
-    } elsif($hits < 1){
+    if($hits < 1){
       $server->command("msg $target Couldn't find \"$where\".");
       return;
     }
