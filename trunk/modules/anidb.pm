@@ -274,7 +274,7 @@ sub download_and_parse {
 
   # prepare a request
   my $request = HTTP::Request->new(GET => $url);
-  $request->header('Referer' => 'http://www.anidb.info/perl-bin/animedb.pl');
+  $request->header('Referer' => 'http://www.anidb.net/perl-bin/animedb.pl');
 
   # download the page
   my $page = $self->{ua}->request($request);
@@ -300,7 +300,7 @@ sub anidb_anime {
   my $info =
     download_and_parse
       ($self,
-       "http://www.anidb.info/perl-bin/animedb.pl?show=anime&aid=$id",
+       "http://www.anidb.net/perl-bin/animedb.pl?show=anime&aid=$id",
        \&anidb_anime_parse) or return undef;
   $info->{aid} = $id;
   return $info;
@@ -313,7 +313,7 @@ sub anidb_search {
   $query = uri_escape($query); # support for kanji
   return download_and_parse
     ($self,
-     "http://www.anidb.info/perl-bin/animedb.pl?show=animelist&adb.search=" .
+     "http://www.anidb.net/perl-bin/animedb.pl?show=animelist&adb.search=" .
      $query . "&do.search=search", \&anidb_search_parse);
 }
 
