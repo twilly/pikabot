@@ -163,7 +163,14 @@ sub trigger_anidb {
   my @msgpieces = ();
   push @msgpieces, "\x0305{ID:$anime->{aid}} ";
   map { push @msgpieces, "\x0313<$_> " } @{$anime->{titles}};
-  push @msgpieces, "\x0311Genre: [ @{$anime->{genres}} ] " if $#{$anime->{genres}} >= 0;
+  if($#{$anime->{genres}} >= 0){
+    my ($genre_list, $cnt) = ('', 0);
+    foreach (@{$anime->{genres}}){
+      $genre_list .= ', ' if $cnt++;
+      $genre_list .= $_;
+    }
+    push @msgpieces, "\x0311Genre: [ $genre_list ] ";
+  }
   push @msgpieces, "\x0311#Eps: [ $anime->{numeps} ] " if defined $anime->{numeps};
   push @msgpieces, "\x0311Rating: [ $anime->{rating} ] " if defined $anime->{rating};
   push @msgpieces, "\x0311URL: [ $anime->{url} ] " if defined $anime->{url};
