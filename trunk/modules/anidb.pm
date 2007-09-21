@@ -16,6 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package anidb;
 
+my $debug_enable = 0;
+
 use strict;
 use LWP::UserAgent;
 use Compress::Zlib;
@@ -272,6 +274,8 @@ sub title_insert {
 sub download_and_parse {
   my ($self, $url, $parser) = @_;
 
+  debug("url = $url");
+
   # prepare a request
   my $request = HTTP::Request->new(GET => $url);
   $request->header('Referer' => 'http://www.anidb.net/perl-bin/animedb.pl');
@@ -310,11 +314,17 @@ sub anidb_anime {
 sub anidb_search {
   my ($self, $query) = @_;
 
-  $query = uri_escape($query); # support for kanji
+  # AniDB requires, for some stupid reason, spaces to be escaped as '+'
+  # (normally they can be either + or %20).
+  # XXX: Queries cannot contain '+' in them now, but I don't care.
+  $query =~ s/\s+/\+/g;
+  $query = uri_escape($query, "^A-Za-z0-9\-_.!~*'()+");
+  my $url = "http://www.anidb.net/perl-bin/animedb.pl?show=animelist&adb.search=" .
+            $query .
+            "&do.search=search";
+  debug("query = $query");
   return download_and_parse
-    ($self,
-     "http://www.anidb.net/perl-bin/animedb.pl?show=animelist&adb.search=" .
-     $query . "&do.search=search", \&anidb_search_parse);
+    ($self, $url, \&anidb_search_parse);
 }
 
 # parses anidb search HTML
@@ -325,15 +335,15 @@ sub anidb_search_parse {
   my $tree = HTML::TreeBuilder->new_from_content($content);
   my @titles;
 
-  if($tree->look_down('_tag' => 'input', 'name' => 'show', 'value' => 'anime')){
+  if(defined (my $ele_aid = $tree->look_down('_tag' => 'input', 'type' => 'hidden', 'name' => 'aid'))){
     # Single hit. Parse the page and return a single-element array with the title
-    if(my $ele_aid = $tree->look_down('_tag' => 'input', 'name' => 'aid')){
-      my $page = anidb_anime_parse($self, $content);
-      anime_insert($self, $page);
-      push @titles, { 'id' => $ele_aid->attr('value'), 'title' => $page->{'maintitle'} };
-    }
+    debug("single title hit");
+    my $page = anidb_anime_parse($self, $content);
+    anime_insert($self, $page);
+    push @titles, { 'id' => $ele_aid->attr('value'), 'title' => $page->{'maintitle'} };
   } else {
     # Multiple hits. Lets walk down the table.
+    debug("multiple title hits");
     my @hits = $tree->look_down('_tag', 'tr', \&test_tr);
     foreach my $hit (@hits){
       # Get the AID from the title link
@@ -562,6 +572,14 @@ sub space_collapse {
   $str =~ s/^ +//;
   $str =~ s/ +$//;
   return $str;
+}
+
+sub debug {
+  if($debug_enable){
+    my $msg = shift;
+    my @stack = caller(1);
+    warn "$stack[3]: $msg\n";
+  }
 }
 
 1;
