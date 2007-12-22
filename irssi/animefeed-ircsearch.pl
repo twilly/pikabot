@@ -67,9 +67,7 @@ sub animefeed_search {
   my ($server, $target, $to, $from, $address, $terms) = @_;
   my ($dbh, $sth);
 
-  my $regex = '.*';
-  map { $regex .= $_ . '.*' } split(/\s+/, $terms);
-  if($regex =~ /^(\.\*)+$/){
+  if($terms =~ /^\s*$/){
     $server->command("msg $target $COLOR{PINK}Error: your query is very inspecific.");
     return;
   }
@@ -79,6 +77,14 @@ sub animefeed_search {
                           PrintError => 0,
                           AutoCommit => 0 });
     $dbh->do("SET search_path TO animefeed");
+
+    # escape things that aren't very clean
+    my $regex = '.*';
+    map {
+      s/([^a-zA-Z0-9])/\\$1/g;
+      $regex .= $_ . '.*';
+    } split(/\s+/, $terms);
+
     $sth = $dbh->prepare("SELECT title,url,round(extract(epoch from age(current_timestamp, stamp))/86400) " .
                          "FROM items WHERE title ~* ? OR url ~* ? " .
                          "ORDER BY stamp DESC");
@@ -88,7 +94,7 @@ sub animefeed_search {
       $server->command("notice $target $COLOR{PINK}BitTorrent search: no results.");
     } elsif($sth->rows > 0){
       $server->command("msg $target $COLOR{LIGHT_BLUE}" . $sth->rows .
-                       " BitTorrent results for query `$terms' (/$regex/i):");
+                       " BitTorrent results for query `$terms':");
     }
     my $count = 0;
     while($sth->rows > 0 and defined (my $result = $sth->fetchrow_arrayref) and $count++ < 5){
