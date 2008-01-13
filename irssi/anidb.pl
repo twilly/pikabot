@@ -78,7 +78,7 @@ sub trigger_anidb {
 
   if($query =~ /^help\s*$/i or length($query) == 0){
     $server->command("msg $target \x0311`!anidb' usage: " .
-                     "!anidb ID:<number> or !anidb <title>");
+                     "!anidb <ID number> or !anidb <title>");
     return 1;
   }
 
@@ -130,7 +130,7 @@ sub trigger_anidb {
       foreach my $title (@titles){
         my $prevstate = $msgbuff;
         my $item;
-        $item .= " ID:$title->{id} [\x0312 $title->{title}\x0311 ]";
+        $item .= " $title->{id} [\x0312 $title->{title}\x0311 ]";
         if(length($msgbuff . $item) > 384){ # prevent overflow
           $server->command("msg $target $prevstate");
           $msgbuff = $header . $item;
@@ -160,7 +160,7 @@ sub trigger_anidb {
 
   # Print out requested anime info
   my @msgpieces = ();
-  push @msgpieces, "\x0305{ID:$anime->{aid}} ";
+  push @msgpieces, "\x0305{$anime->{aid}} ";
   map { push @msgpieces, "\x0313<$_> " } @{$anime->{titles}};
   if($#{$anime->{genres}} >= 0){
     my ($genre_list, $cnt) = ('', 0);
