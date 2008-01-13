@@ -54,7 +54,7 @@ sub irc_privmsg {
 
   # Check if it was for the channel we joined...
   if(uc($to) eq uc($me) or $anidb_active_chans{uc($to)}){
-    if($message =~ /^[^!]*!anidb\s+(.+)/i){
+    if($message =~ /^\s*!anidb\s+(.+)/i){
       trigger_anidb($server, $target, $to, $from, $address, $1);
     }
   }
