@@ -28,17 +28,23 @@ $VERSION = '0.01';
            'description' => 'auto-voice fservs',
            'license'     => 'GPL v2' );
 
+# What channels are we allowed to monitor?
 Irssi::settings_add_str($IRSSI{'name'}, 'autovoice_channels', '');
+# update interval: time, in minutes, between !list. cache items
+# invalidate after this interval as well. Default: 12 hours
+Irssi::settings_add_int($IRSSI{'name'}, 'autovoice_update_interval', 60*12);
 
-my (%active_chans, %voice_cache);
+my (%active_chans, $update_interval, %voice_cache);
 load_globals();
 
 Irssi::signal_add('message irc notice', 'irc_notice');
 Irssi::signal_add('setup changed', 'load_globals');
+Irssi::signal_add('massjoin', 'irc_massjoin');
 
 sub load_globals {
   map { $active_chans{uc($_)} = 1 }
     quotewords(',', 0, Irssi::settings_get_str('autovoice_channels'));
+  $update_interval = Irssi::settings_get_int('autovoice_update_interval');
 }
 
 sub irc_notice {
@@ -59,14 +65,18 @@ sub irc_join {
 sub irc_massjoin {
   my ($channel, $nicks_aref) = @_;
 
-  return if (not $channel->{chanop}); # is half-op also chanop?
+  if(not defined $active_chans{uc($channel->{name})} or
+     not $channel->{chanop}){
+     return;
+  }
 
   # Search through nicks for matches in the cache
   my @to_voice;
-  my $oldest_timestamp = time() - (60*60); # 1 hour timeout
+  # invalid entry if older than update interval
+  my $oldest_timestamp = time() - ($update_interval * 60);
   map {
     if($voice_cache{$channel->{server}}{$_->{nick}} >= $oldest_timestamp){
-      push @to_voice, $_->{nick};
+      push @to_voice, $_->{nick} if not ($_->{op} or $_->{halfop} or $_->{voice});
     }
   } (@{$nicks_aref});
 
