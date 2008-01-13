@@ -77,7 +77,7 @@ sub irc_privmsg {
   $error = 'unknown error';
 
   if(uc($to) eq uc($me) or $active_chans{uc($to)}){
-    if($message =~ /^[^!@]*!calc(ulat(e|or))?\s+(.+)/oi){
+    if($message =~ /^\s*!calc(ulat(e|or))?\s+(.+)/oi){
       my $input = $3;
       my $rpn = shunting($input);
       if(not defined $rpn){
