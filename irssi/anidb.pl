@@ -88,7 +88,6 @@ sub trigger_anidb {
   if($query =~ /^(ID:)?(\d+)/i){
     $anime = $anidb->anime_query($2);
   } else {
-    Irssi::print("anidb: running query `$query'.");
     my @titles = $anidb->title_query($query);
  
     # Check if there are any or too many results
@@ -173,6 +172,13 @@ sub trigger_anidb {
   }
   push @msgpieces, "\x0311#Eps: [ $anime->{numeps} ] " if defined $anime->{numeps};
   push @msgpieces, "\x0311Rating: [ $anime->{rating} ] " if defined $anime->{rating};
+  if(defined $anime->{startdate}){
+    if(defined $anime->{enddate}){
+      push @msgpieces, "\x0311Released: [ $anime->{startdate} to $anime->{enddate} ] "
+    } else {
+      push @msgpieces, "\x0311Released: [ $anime->{startdate} ] "
+    }
+  }
   push @msgpieces, "\x0311URL: [ $anime->{url} ] " if defined $anime->{url};
   push @msgpieces, "\x0311AniDB: [ \x0312http://anidb.info/a$anime->{aid}\x0311 ]";
   my $msgbuff;

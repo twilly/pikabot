@@ -464,7 +464,7 @@ sub anidb_anime_parse {
   my ($self, $content) = @_;
   my %info;
   my %translation =
-    ( 'Main Title'      => # XXX: Dead?
+    ( 'Main Title'      =>
         sub {
           $info{'maintitle'} = decode_entities($_[1]);
           $info{'maintitle'} =~ s/\s+\(a?\d+\)\s*$//; # get rid of that ID junk
@@ -473,11 +473,13 @@ sub anidb_anime_parse {
       'Kanji/Kana' => \&add_title, # XXX: Dead?
       'Official Title' => \&add_title,
       'English'    => \&add_title, # XXX: Dead?
-      'Synonym' => 
-        sub {
-          my ($infohref, $value) = @_;
-          map { add_title($infohref, $_) } split(/,\s*/, $value);
-        },
+
+# There are too many titles as is.
+#     'Synonym' => 
+#       sub {
+#         my ($infohref, $value) = @_;
+#         map { add_title($infohref, $_) } split(/,\s*/, $value);
+#       },
 
       'Categories'      => # Genre is now Catagories
         sub {
@@ -496,10 +498,15 @@ sub anidb_anime_parse {
           }
         },
 
-      'URL' =>
+      'Resources' =>
         sub {
-          $info{'url'} = $_[1];
-          if($info{'url'} eq ''){ $info{'url'} = undef }
+          my ($info, $value, $value_element) = @_;
+          foreach my $link ($value_element->look_down('_tag', 'a')){
+            if($link->tag() eq 'a' and
+               $link->as_text() =~ /official page/i){
+              $info{'url'} = $link->attr('href');
+            }
+          }
         },
 
       'Rating' =>
@@ -508,11 +515,14 @@ sub anidb_anime_parse {
       'Year' =>
         sub {
           my ($info, $val) = @_;
-          if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})\s+till\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/){
-            my @cpy = ($1, $2, $3, $4, $5, $6);
-            map { $_ =~ s/^0+// } @cpy;
-            $info->{'startdate'} = "$cpy[1]/$cpy[0]/$cpy[2]";
-            $info->{'enddate'} = "$cpy[4]/$cpy[3]/$cpy[5]";
+          if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})(\s+till\s+(\?|(\d{1,2})\.(\d{1,2})\.(\d{4})))?/){
+            my @cpy = ($1, $2, $3, $6, $7, $8);
+            my $date_two = $5;
+            map { $_ =~ s/^0+// if defined $_ } @cpy;
+            $info->{'startdate'} = sprintf "%4d-%02d-%02d", $cpy[2], $cpy[1], $cpy[0];
+            if(defined $date_two and $date_two !~ /\?/){
+              $info->{'enddate'} = sprintf "%4d-%02d-%02d", $cpy[5], $cpy[4], $cpy[3];
+            }
           }
         },
 
@@ -541,10 +551,10 @@ sub anidb_anime_parse {
       $value = $value->look_down('_tag', 'span', 'class', undef);
     }
     my ($left, $right) = map {
-      $_ = decode_entities(space_collapse($_->as_text()));
+      decode_entities(space_collapse($_->as_text()));
     } ($field, $value);
     if(defined $translation{$left}){
-      $translation{$left}->(\%info, $right);
+      $translation{$left}->(\%info, $right, $value);
     }
   }
   $tree->delete;
