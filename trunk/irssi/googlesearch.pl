@@ -58,7 +58,7 @@ if(in_irssi()){
   Irssi::signal_add('event privmsg', 'irc_privmsg');
 } else {
   my %opt;
-  getopts("hps:k:", \%opt) or die;
+  getopts("hpls:k:", \%opt) or die;
   print_help() and exit if $opt{h};
   die "-s and -k options are required\n"
     if not defined $opt{s} or not defined $opt{k};
@@ -83,13 +83,22 @@ if(in_irssi()){
       print " ";
     }
     print "\n";
+
+    last if $opt{l}; # I'm Feeling Lucky
   }
 }
 
 sub print_help {
   my $script = basename($0);
   print <<"__HELP__";
-Options: $script -s <site url> -k <ajax key> <search terms>
+Options: $script [options] -s <site url> -k <ajax key> <search terms>
+-= Options =-
+
+  -h               : This message.
+  -p               : Print raw dump of google's returned object.
+  -l               : Print only first result (I'm Feeling Lucky).
+  -s <site>        : Required site url.
+  -k <key>         : Required ajax key.
 __HELP__
 }
 
