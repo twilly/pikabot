@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 # googlesearch.pl: !google search trigger for irssi
 #
 # Copyright (C) 2007 Tristan Willy <tristan.willy at gmail.com>
@@ -17,6 +18,7 @@
 
 use strict;
 use warnings;
+use File::Basename;
 use Text::ParseWords;
 use HTML::Entities;
 use Compress::Zlib;
@@ -24,50 +26,92 @@ use URI::Escape;
 use JSON;
 use LWP;
 
-use vars qw($VERSION %IRSSI);
-use Irssi;
-$VERSION = '0.01';
-%IRSSI = (
-    'authors'     => 'Tristan Willy',
-    'contact'     => 'tristan.willy at gmail.com',
-    'name'        => 'Google Search',
-    'description' => 'Google Search for irssi. Uses Google\'s AJAX API.',
-    'license'     => 'GPL v2'
-    );
-
-Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_channels', '');
-Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_site_url', '');
-Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_key', '');
-
-Irssi::signal_add('event privmsg', 'irc_privmsg');
-
-sub irc_privmsg {
-  my ($server, $data, $from, $address) = @_;
-  my ($to, $message) = split(/\s+:/, $data, 2);
-  my ($me, $target) = ($server->{'nick'}, find_target($to, $from));
-  my (%gsearch_active_chans, $site_url, $ajax_key);
-
-  # Are we triggered?
-  if($message !~ /^\s*!google\s+(.+)/i){
-    return 1;
+BEGIN {
+  eval { Irssi::Core::is_static() };
+  if(not $@){
+    use vars qw($VERSION %IRSSI);
+    require Irssi;
+    $VERSION = '0.01';
+    %IRSSI = (
+        'authors'     => 'Tristan Willy',
+        'contact'     => 'tristan.willy at gmail.com',
+        'name'        => 'Google Search',
+        'description' => 'Google Search for irssi. Uses Google\'s AJAX API.',
+        'license'     => 'GPL v2'
+        );
+  } else {
+    require Getopt::Std;
+    Getopt::Std->import;
   }
-  my $encoded_query = uri_escape($1, "^A-Za-z0-9\-_.!~*'()+");
+}
 
-  # pull in settings
-  map { $gsearch_active_chans{uc($_)} = 1 }
-    quotewords(',', 0, Irssi::settings_get_str('gsearch_channels'));
-  $site_url = Irssi::settings_get_str('gsearch_site_url');
-  $ajax_key = Irssi::settings_get_str('gsearch_key');
+sub in_irssi {
+  eval { Irssi::Core::is_static() };
+  return (not $@);
+}
+
+if(in_irssi()){
+  Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_channels', '');
+  Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_site_url', '');
+  Irssi::settings_add_str($IRSSI{'name'}, 'gsearch_key', '');
+
+  Irssi::signal_add('event privmsg', 'irc_privmsg');
+} else {
+  my %opt;
+  getopts("hps:k:", \%opt) or die;
+  print_help() and exit if $opt{h};
+  die "-s and -k options are required\n"
+    if not defined $opt{s} or not defined $opt{k};
+
+  my $terms = join(' ', @ARGV);
+  my $result = google_search($opt{s}, $opt{k}, $terms);
+
+  if($opt{p}){
+    use Data::Dumper;
+    print Dumper($result);
+  }
+
+  foreach my $hit (@{$result->{results}}){
+    print
+      untag(decode_entities($hit->{title})) . " " .
+      "<$hit->{unescapedUrl}>\t";
+    my $content = decode_entities($hit->{content});
+    $content =~ s/\s+/ /g;
+    if(length $content > 5){
+      print untag($content);
+    } else {
+      print " ";
+    }
+    print "\n";
+  }
+}
+
+sub print_help {
+  my $script = basename($0);
+  print <<"__HELP__";
+Options: $script -s <site url> -k <ajax key> <search terms>
+__HELP__
+}
+
+sub error {
+  my $msg = join(' ', @_);
+  if(in_irssi()){
+    Irssi::print($msg);
+  } else {
+    die "$msg\n";
+  }
+}
+
+sub google_search {
+  my ($site_url, $ajax_key, $query) = @_;
+
+  my $encoded_query = uri_escape($query, "^A-Za-z0-9\-_.!~*'()+");
 
   # verify settings and trigger perms
   if(not $site_url or not $ajax_key){
-    Irssi::print("Google search: search detected, but settings not set.");
-    return 1;
+    error("Missing site url and ajax key.");
+    return;
   }
-  if(not (uc($to) eq uc($me) or $gsearch_active_chans{uc($to)})){
-    return 1;
-  }
-
   my $agent = LWP::UserAgent->new(
       'agent' =>
         'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) ' .
@@ -91,14 +135,39 @@ sub irc_privmsg {
       $results = $reply->content;
     }
   } else {
-    $server->command("msg $target Error: Google died. The end is near.");
-    return 1;
+    error("Google died. The end is near.");
+    return;
   }
 
   # Cut out the JS call and parse
   $results =~ s/^GwebSearch.RawCompletion\('\d+',//;
-  my $resh = jsonToObj($results);
+  return jsonToObj($results);
+}
 
+sub irc_privmsg {
+  my ($server, $data, $from, $address) = @_;
+  my ($to, $message) = split(/\s+:/, $data, 2);
+  my ($me, $target) = ($server->{'nick'}, find_target($to, $from));
+  my (%gsearch_active_chans, $site_url, $ajax_key);
+
+  # Are we triggered?
+  if($message !~ /^\s*!google\s+(.+)/i){
+    return 1;
+  }
+  my $query = $1;
+
+  # pull in settings
+  map { $gsearch_active_chans{uc($_)} = 1 }
+    quotewords(',', 0, Irssi::settings_get_str('gsearch_channels'));
+  $site_url = Irssi::settings_get_str('gsearch_site_url');
+  $ajax_key = Irssi::settings_get_str('gsearch_key');
+ 
+  # permitted?
+  if(not (uc($to) eq uc($me) or $gsearch_active_chans{uc($to)})){
+    return 1;
+  }
+
+  my $resh = google_search($site_url, $ajax_key, $query);
   if(not $resh){
     $server->command("msg $target Error: Google is speaking gibberish.");
     return 1;
