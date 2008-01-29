@@ -31,11 +31,21 @@ Irssi::settings_add_str($IRSSI{'name'}, 'fun_channels', '');
 Irssi::settings_add_str($IRSSI{'name'}, 'fun_pikas',
 			'Chuuuu!,Pika?,Pika ka pika\, Pikachu!,Pikapi!');
 
-my @adverbs = ('vigorously', 'powerfully', 'lovingly',
-	       'energetically', 'passionately', 'intensely',
-	       'bountifully', 'thoughtlessly', 'timidly',
-	       'satisfyingly', 'luxuriantly', 'sweetly',
-	       'happily', 'enthusiastically');
+my @adverbs =
+  ( 'vigorously', 'powerfully', 'lovingly',
+    'energetically', 'passionately', 'intensely',
+    'bountifully', 'thoughtlessly', 'timidly',
+    'satisfyingly', 'luxuriantly', 'sweetly',
+    'happily', 'enthusiastically', 'adamantly',
+    'adventurously', 'aggressively', 'ambitiously',
+    'amusingly', 'artfully', 'avidly', 'bashfully',
+    'boisterously', 'charmingly', 'comically',
+    'covertly', 'crazily', 'deviously', 'engagingly',
+    'energetically', 'endlessly', 'emotionally',
+    'exotically', 'exuberantly', 'fabulously', 'flamboyantly',
+    'friskily', 'glowingly', 'handsomely', 'joyously', 'jubilantly'
+  );
+
 my (%fun_active_chans, @pikas, $only_channel);
 load_globals();
 
