@@ -43,7 +43,9 @@ my @adverbs =
     'covertly', 'crazily', 'deviously', 'engagingly',
     'energetically', 'endlessly', 'emotionally',
     'exotically', 'exuberantly', 'fabulously', 'flamboyantly',
-    'friskily', 'glowingly', 'handsomely', 'joyously', 'jubilantly'
+    'friskily', 'glowingly', 'handsomely', 'joyously', 'jubilantly',
+    'zestfully', 'youthfully', 'whimsically', 'wholeheartedly', 'wholly',
+    'wonderfully', 'wisely', 'wildly', 'warmly', 'vulnerably'
   );
 
 my (%fun_active_chans, @pikas, $only_channel);
