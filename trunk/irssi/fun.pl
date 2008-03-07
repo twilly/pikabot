@@ -213,7 +213,7 @@ sub trigger_huggle {
   if($message =~ /\s*!huggle(sz)?\s+(.+?)(\s+)?$/io){
     my $to_huggle = $2;
     push @msg, "\x0313<3 <3 <3 @{[rand_color() . $from]} " .
-      "@{[rand_color() . $adverbs[int rand $#adverbs]]} $huggles " .
+      "@{[rand_color() . $adverbs[int rand scalar @adverbs]]} $huggles " .
 	"@{[rand_color() . $to_huggle]} \x0313<3 <3 <3";
   }
 
