@@ -347,17 +347,14 @@ sub anidb_search_parse {
     my @hits = $tree->look_down('_tag', 'tr', \&test_tr);
     foreach my $hit (@hits){
       # Get the AID from the title link
-      my $link = $hit->look_down('_tag', 'a', \&test_aid_link);
+      my $link_cell = $hit->look_down('_tag', 'td', 'class' => qr/name/);
+      next if not $link_cell;
+      my $link = $link_cell->look_down('_tag', 'a', \&test_aid_link);
       my $aid = 0;
       if($link->attr('href') =~ /aid=(\d+)/){ $aid = $1 }
 
-      # Titles are either there or in a italic subtag
-      my $title = '';
-      if(my $t = $link->look_down('_tag', 'i')){ # Non-Japanese title
-        $title = decode_entities($t->content_array_ref->[0]);
-      } else { # Japanese title
-        $title = decode_entities($link->content_array_ref->[0]);
-      }
+      # Title is in the link text
+      my $title = decode_entities($link->as_text());
 
       push @titles, { 'id' => $aid, 'title' => $title };
     }
