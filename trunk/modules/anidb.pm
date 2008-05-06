@@ -542,10 +542,9 @@ sub anidb_anime_parse {
     if(not $field->parent()){ next } # this shouldn't arise
     my $value = $field->parent()->look_down('_tag', 'td', 'class', qr/value/i)
       or next; # this shouldn't arise either
-    # 'Official Title' now includes little icons that we need to ignore.
-    if($value->look_down('_tag', 'div', 'class', qr/icons/) and
-       $value->look_down('_tag', 'span', 'class', undef)){
-      $value = $value->look_down('_tag', 'span', 'class', undef);
+    # Find a label if we can (skips the junk found in title fields)
+    if(my $tmp = $value->look_down('_tag', 'label')){
+      $value = $tmp;
     }
     my ($left, $right) = map {
       decode_entities(space_collapse($_->as_text()));
