@@ -32,14 +32,14 @@ my %feeds = ( 'Tokyo Toshokan' => { 'url' => 'http://tokyotosho.com/rss.php' },
               'Baka Updates'   => { 'url' => 'http://www.baka-updates.com/rss.php' }
             );
 
-my $twig = new XML::Twig(
-  twig_handlers => { 'item' => \&process_item,
-                     'ttl'  => \&process_ttl }
-  );
-
 # Core loop: Get the feeds, process them, and then sleep for the minimal TTL.
 my ($dbh, $item_sth); # needs to be accessed by twig handlers
 while(1) {
+  my $twig = new XML::Twig(
+      twig_handlers => { 'item' => \&process_item,
+      'ttl'  => \&process_ttl }
+      );
+
   eval {
     # Get the feeds
     $dbh = undef;
@@ -65,8 +65,10 @@ while(1) {
       }
     }
     $item_sth->finish;
-    $dbh->commit;
-    $dbh->disconnect;
+    if(defined $dbh){
+      $dbh->commit;
+      $dbh->disconnect;
+    }
     my $secs_left = $update_interval * 60;
     do { $secs_left -= sleep($secs_left) } while($secs_left > 0);
   };
