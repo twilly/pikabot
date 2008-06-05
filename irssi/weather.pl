@@ -172,7 +172,7 @@ sub english_report {
   }
   $report .= " and $weather->{type}.";
   if($weather->{humidity} > 60){
-    $report .= " Also, it's really humid out ($weather->{humidity}%).";
+    $report .= " Also, it's really humid ($weather->{humidity}%).";
   }
   return $report;
 }
