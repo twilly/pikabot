@@ -171,7 +171,7 @@ sub english_report {
     $report .= ", but feels like $weather->{feelslike}{F}°F ($weather->{feelslike}{C}°C),";
   }
   $report .= " and $weather->{type}.";
-  if($weather->{humidity} > 60 &&
+  if($weather->{humidity} > 60 and
      $weather->{temp}{F} >= 80){
     $report .= " Also, it's really humid ($weather->{humidity}%).";
   }
