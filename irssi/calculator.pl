@@ -100,6 +100,15 @@ sub irc_privmsg {
       if($@){
         $server->command("msg $target \x0304Fatal error: $@");
       }
+    } elsif($message =~ /^\s*!rpn\s+(.+)/oi){
+      my $input = $1;
+      my $rpn = get_tokens($input);
+      my $answer = execute_rpn($rpn);
+      if(defined $answer){
+        $server->command("msg $target $input => $answer");
+      } else {
+        $server->command("msg $target \x0304Go learn Polish first!");
+      }
     }
   } 
 }
