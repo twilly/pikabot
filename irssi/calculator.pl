@@ -87,7 +87,7 @@ sub irc_privmsg {
       if($debug){
         my @syms;
         map { push @syms, $_->[1] } @{$rpn};
-        Irssi::print("$IRSSI{name}: infix->rpn: $input => @syms");
+        # Irssi::print("$IRSSI{name}: infix->rpn: $input => @syms");
       }
       eval { # protect against calculation errors
         my $answer = execute_rpn($rpn);
