@@ -107,7 +107,7 @@ my $anime_misc_machine =
         'goto'    => 'top' },
       # when we see this, commit and halt
       { 'tag'     => 'div',
-        'require' => { 'class' => qr/groups/ },
+        'require' => { 'class' => qr/pane.*titles/ },
         'commit'  => 1,
         'goto'    => 'halt' }
     ],
