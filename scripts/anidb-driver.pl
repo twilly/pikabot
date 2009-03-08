@@ -32,7 +32,7 @@ if($#ARGV < 0){
   exit 1;
 }
 
-my $anidb = anidb->new('Database' => 'pikabot')
+my $anidb = anidb->new('Database' => 'pikabot.db')
   or die "anidb creation error: $!\n";
 
 # run queries
@@ -54,7 +54,11 @@ sub search_title {
   foreach my $aid (@aids){
     print "= ID:$aid =\n";
     foreach my $aq_result ($anidb->anime_query($aid)){
-      print_title($aq_result);
+      if(not defined $aq_result){
+        print "Error: no result\n";
+      } else {
+        print_title($aq_result);
+      }
     }
   }
 }
