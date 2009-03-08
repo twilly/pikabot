@@ -614,9 +614,15 @@ sub anidb_anime_parse {
   $info{url} = $misc->{url};
 
   # map rating
+  if(defined $misc->{rating} and $misc->{rating} =~ /n\/a/i){
+      delete $misc->{rating};
+  }
+  if(defined $misc->{tmprating} and $misc->{tmprating} =~ /n\/a/i){
+      delete $misc->{tmprating};
+  }
   if(defined $misc->{rating}){
     $info{rating} = $misc->{rating};
-  } else {
+  } elsif (defined $misc->{tmprating}){
     $info{rating} = $misc->{tmprating};
   }
 
