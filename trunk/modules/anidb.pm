@@ -23,9 +23,149 @@ use LWP::UserAgent;
 use Compress::Zlib;
 use DBI;
 use Encode;
-use HTML::TreeBuilder;
 use HTML::Entities;
 use URI::Escape;
+use HTML::Scrape qw(put);
+
+
+# HTML::Scrape search page
+ my $search_machine = 
+  [ # Match the anime list
+    { 'tag'     => 'table',
+      'require' => { 'class' => qr/animelist/ } },
+ 
+    # Grab a single result
+    { 'label'   => 'result',
+      'tag'     => 'a',
+      'require' => { 'href' => qr/aid=\d+/ },
+      'attr'    => { 'href' => put('link') } },
+    { 'tag'     => 'img',
+      'attr'    => { 'alt' => put('title') } },
+ 
+    # commit and loop back
+    { 'tag'    => 'tr',
+      'commit' => 1,
+      'goto'   => 'result' }
+  ];
+
+# HTML::Scrape anime result page
+my $anime_titles_machine =
+  [ { 'tag' => 'div',
+      'require' => { 'class' => qr/g_definitionlist/ } },
+
+    # Get Main Title
+    { 'tag' => 'tr',
+      'require' => { 'class' => qr/g_odd/ } },
+    { 'text' => qr/Main\s+Title/ },
+    { 'tag' => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'text' => put('title') },
+
+    # Get official titles
+    [ { 'label' => 'official title',
+        'tag' => 'tr',
+        'require' => { 'class' => qr/official/ } },
+      # we're down to the description. commit and fall to stop state.
+      { 'tag'    => 'div',
+        'commit' => 1,
+        'goto'   => 'halt' } ],
+    { 'tag' => 'label' },
+    { 'text' => put('official_title') },
+    # go back up
+    { 'tag' => '/label',
+        'goto' => 'official title' },
+
+    # halt
+    { 'label' => 'halt', 'goto' => 'halt' },
+  ];
+
+my $anime_misc_machine =
+  [ [ # branches for various metadata
+      { 'label'   => 'top',
+        'tag'     => 'tr', 
+        'require' => { 'class' => qr/type/ },
+        'goto'    => 'type' },
+      { 'tag'     => 'tr', 
+        'require' => { 'class' => qr/year/ },
+        'goto'    => 'year' },
+      { 'tag'     => 'tr', 
+        'require' => { 'class' => qr/categories/ },
+        'goto'    => 'categories' },
+      { 'tag'     => 'tr', 
+        'require' => { 'class' => qr/([^p]|^)rating/ },
+        'goto'    => 'rating' },
+      { 'tag'     => 'tr', 
+        'require' => { 'class' => qr/tmprating/ },
+        'goto'    => 'tmprating' },
+      { 'tag'     => 'tr', 
+        'require' => { 'class' => qr/resources/ },
+        'goto'    => 'resources' },
+      { 'tag'     => 'input',
+        'require' => { 'type' => qr/hidden/,
+                       'name'  => qr/aid/ },
+        'attr'    => { 'value' => put('aid') },
+        'goto'    => 'top' },
+      # when we see this, commit and halt
+      { 'tag'     => 'div',
+        'require' => { 'class' => qr/groups/ },
+        'commit'  => 1,
+        'goto'    => 'halt' }
+    ],
+
+    # Type
+    { 'label'   => 'type',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'text'    => put('type'),
+      'goto'    => 'top' },
+
+    # Year
+    { 'label'   => 'year',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'text'    => put('year'),
+      'goto'    => 'top' },
+
+    # Catagories
+    { 'label'   => 'categories',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    [ { 'tag'     => 'a',
+        'require' => { 'class' => qr/action/},
+        'goto'    => 'top' },
+      { 'label'   => 'catlink',
+        'tag'     => 'a' }
+    ],
+    { 'text' => put('genre'),
+      'goto' => 'catlink' },
+
+    # Rating
+    { 'label'   => 'rating',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'text'    => put('rating'),
+      'goto'    => 'top' },
+
+    # Temp Rating
+    { 'label'   => 'tmprating',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'text'    => put('tmprating'),
+      'goto'    => 'top' },
+
+    # Official page
+    { 'label'   => 'resources',
+      'tag'     => 'td',
+      'require' => { 'class' => qr/value/ } },
+    { 'tag'     => 'a',
+      'attr'    => { 'href' => put('url') },
+      'goto'    => 'top' },
+
+    # halt state
+    { 'label' => 'halt',
+      'goto'  => 'halt' }
+  ];
+
 
 sub new {
   my $type = shift;
@@ -37,34 +177,17 @@ sub new {
     return undef;
   }
 
-  # set optional paramaters
-  map {
-    $params{$_} = exists $params{$_} ?  $params{$_} : undef;
-  } ('Username', 'Password', 'Server');
-
   # connect to the DB
-  my $connect_str = "dbi:Pg:dbname=$params{Database}";
-  $connect_str .= ";host=$params{Server}" if defined $params{Server};
+  my $connect_str = "dbi:SQLite:dbname=$params{Database}";
   $self->{dbh} =
-    DBI->connect($connect_str,
-                 $params{Username}, $params{Password},
+    DBI->connect($connect_str, "", "",
                  { RaiseError => 1, PrintError => 0,  AutoCommit => 0 })
       or return undef;
-
-  # change to anidb schema
-  $params{'Schema'} = exists $params{'Schema'} ? $params{'Schema'} : 'anidb';
-  eval {
-    $self->{dbh}->do("SET search_path TO $params{'Schema'}");
-  };
-  if($@){
-    $self->{dbh}->disconnect;
-    return undef;
-  }
 
   # make a LWP object for quering anidb
   my $ua = LWP::UserAgent->new() or return undef;
   $ua->timeout(30);
-  $ua->agent('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) ' .
+  $ua->agent('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1; fixing your API would make life easier) ' .
              'Gecko/20061010 Firefox/2.0');
   $self->{ua} = $ua;
 
@@ -192,11 +315,11 @@ sub anime_search {
     $sth = $self->{dbh}->prepare
       ("SELECT * FROM anime WHERE aid = ?");
     $sth->execute($id);
-    die "DB anime miss" if $sth->rows != 1;
+    die "DB anime miss" if not defined $sth->fetchrow_arrayref()->[0];
     # put the row data into the info hash
     map {
       $info{shift @table_metadata} = $_;
-    } $sth->fetchrow_array();
+    } @{$sth->fetchrow_arrayref()};
     $sth->finish();
   };
   if($@){
@@ -211,8 +334,8 @@ sub anime_search {
        "WHERE genre_names.gid = genre.gid " .
        "AND genre.aid = ?");
     $sth->execute($info{aid});
-    while(my @row = $sth->fetchrow_array()){
-      push @{$info{genres}}, $row[0];
+    while(my $row = $sth->fetchrow_arrayref()){
+      push @{$info{genres}}, $row->[0];
     }
     $sth->finish();
 
@@ -220,8 +343,8 @@ sub anime_search {
     $sth = $self->{dbh}->prepare
       ("SELECT title FROM titles WHERE aid = ?");
     $sth->execute($info{aid});
-    while(my @row = $sth->fetchrow_array()){
-      push @{$info{titles}}, $row[0];
+    while(my $row = $sth->fetchrow_arrayref()){
+      push @{$info{titles}}, $row->[0];
     }
     $sth->finish();
   };
@@ -242,16 +365,16 @@ sub title_insert {
 
     # insert search term
     $sth = $self->{dbh}->prepare
-      ("INSERT INTO search_cache_table VALUES (DEFAULT, ?, 'now')");
+      ("INSERT OR REPLACE INTO search_cache_table VALUES (null, ?, julianday('now'))");
     $sth->execute($query);
     $sth->finish();
 
     # retrieve search term's sid
     $sth = $self->{dbh}->prepare
-      ("SELECT sid FROM search_cache WHERE terms = ?");
+      ("SELECT sid FROM search_cache_table WHERE terms = ?");
     $sth->execute($query);
-    die "Failed to retrieve search ID" if $sth->rows != 1;
     my $sid = $sth->fetchrow_arrayref()->[0];
+    die "Failed to retrieve search ID" if not defined $sid;
     $sth->finish();
 
     # insert title results
@@ -332,34 +455,31 @@ sub anidb_search {
 #       this should deal with that case to reduce load
 sub anidb_search_parse {
   my ($self, $content) = @_;
-  my $tree = HTML::TreeBuilder->new_from_content($content);
   my @titles;
 
-  if(defined (my $ele_aid = $tree->look_down('_tag' => 'input', 'type' => 'hidden', 'name' => 'aid'))){
+  if($content !~ 'sort descending'){
     # Single hit. Parse the page and return a single-element array with the title
     debug("single title hit");
     my $page = anidb_anime_parse($self, $content);
     anime_insert($self, $page);
-    push @titles, { 'id' => $ele_aid->attr('value'), 'title' => $page->{'maintitle'} };
+    push @titles, { 'id' => $page->{aid}, 'title' => $page->{maintitle} };
   } else {
-    # Multiple hits. Lets walk down the table.
+    # search page returned multiple hits
     debug("multiple title hits");
-    my @hits = $tree->look_down('_tag', 'tr', \&test_tr);
-    foreach my $hit (@hits){
-      # Get the AID from the title link
-      my $link_cell = $hit->look_down('_tag', 'td', 'class' => qr/name/);
-      next if not $link_cell;
-      my $link = $link_cell->look_down('_tag', 'a', \&test_aid_link);
-      my $aid = 0;
-      if($link->attr('href') =~ /aid=(\d+)/){ $aid = $1 }
+    my $scrape = new HTML::Scrape(Machine => $search_machine);
+    my @results = $scrape->scrape($content) or return [];
 
-      # Title is in the link text
-      my $title = decode_entities($link->as_text());
-
-      push @titles, { 'id' => $aid, 'title' => $title };
+    # clean up the scrape by extracting the aid and not returning
+    # the same AID twice
+    my %seen = ();
+    foreach my $result (@results){
+        my $aid = $1 if $result->{link} =~ /aid=(\d+)/;
+        if(not $seen{$aid}){
+            push @titles, { 'id' => $aid, 'title' => $result->{title} };
+            $seen{$aid} = 1;
+        }
     }
   }
-  $tree->delete;
 
   if($#titles >= 0){
     return \@titles;
@@ -422,7 +542,7 @@ sub anime_insert {
     $sth->finish();
 
     # update cache status
-    $sth = $self->{dbh}->prepare("INSERT INTO details_cache VALUES (?, 'now')");
+    $sth = $self->{dbh}->prepare("INSERT INTO details_cache VALUES (?, julianday('now'))");
     $sth->execute($info->{aid});
     $sth->finish();
 
@@ -439,19 +559,15 @@ sub anime_insert_genres {
   my ($self, $genres) = @_;
 
   eval {
-    my ($sth_select, $sth_insert);
-    $sth_select = $self->{dbh}->prepare("SELECT * FROM genre_names WHERE gname = ?");
-    $sth_insert = $self->{dbh}->prepare("INSERT INTO genre_names VALUES (DEFAULT, ?)");
+    my $sth_insert = $self->{dbh}->prepare("INSERT OR FAIL INTO genre_names VALUES (null, ?)");
     foreach my $genre (@{$genres}){
-      $sth_select->execute($genre); # locate
-      $sth_insert->execute($genre) if $sth_select->rows == 0; # missing, insert
+      $sth_insert->execute($genre);
     }
-    $sth_select->finish();
     $sth_insert->finish();
     $self->{dbh}->commit(); # commit any changes
   };
   if($@){
-    #warn "anidb.pm: Database error: $@ [@{[$self->{dbh}->errstr()]}]\n";
+    #warn "anidb.pm: database error when inserting into genres: $@ [@{[$self->{dbh}->errstr()]}]";
     eval { $self->{dbh}->rollback() };
   }
 }
@@ -460,106 +576,62 @@ sub anime_insert_genres {
 sub anidb_anime_parse {
   my ($self, $content) = @_;
   my %info;
-  my %translation =
-    ( 'Main Title'      =>
-        sub {
-          $info{'maintitle'} = decode_entities($_[1]);
-          $info{'maintitle'} =~ s/\s+\(a?\d+\)\s*$//; # get rid of that ID junk
-          add_title($_[0], $info{'maintitle'});
-        },
-      'Kanji/Kana' => \&add_title, # XXX: Dead?
-      'Official Title' => \&add_title,
-      'English'    => \&add_title, # XXX: Dead?
+  my $scrape_titles = new HTML::Scrape(Machine => $anime_titles_machine);
+  my $scrape_misc   = new HTML::Scrape(Machine => $anime_misc_machine);
 
-# There are too many titles as is.
-#     'Synonym' => 
-#       sub {
-#         my ($infohref, $value) = @_;
-#         map { add_title($infohref, $_) } split(/,\s*/, $value);
-#       },
+  my @titleset = $scrape_titles->scrape($content) or return;
+  my @miscset = $scrape_misc->scrape($content) or return;
+  my $titles = $titleset[0];
+  my $misc = $miscset[0];
 
-      'Categories'      => # Genre is now Catagories
-        sub {
-          my $str = $_[1];
-          $str =~ s/\s+-\s+.*$//;
-          push @{$info{'genres'}}, grep { ! /^\s*-\s*$/ } split(/,\s+/, $str);
-         },
+  # map AID
+  $info{aid} = $misc->{aid};
 
-      'Type' =>
-        sub {
-          if($_[1] =~ /([^,]+),\s*(\d+)\s*episodes/){
-            $info{'type'}   = $1;
-            $info{'numeps'} = $2;
-          } else {
-            $info{'type'} = $_[1];
-          }
-        },
-
-      'Resources' =>
-        sub {
-          my ($info, $value, $value_element) = @_;
-          foreach my $link ($value_element->look_down('_tag', 'a')){
-            if($link->tag() eq 'a' and
-               $link->as_text() =~ /official page/i){
-              $info{'url'} = $link->attr('href');
-            }
-          }
-        },
-
-      'Rating' =>
-        sub { if($_[1] =~ /(\d+\.\d+)/){ $info{'rating'} = $1 } },
-
-      'Year' =>
-        sub {
-          my ($info, $val) = @_;
-          if($val =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})(\s+till\s+(\?|(\d{1,2})\.(\d{1,2})\.(\d{4})))?/){
-            my @cpy = ($1, $2, $3, $6, $7, $8);
-            my $date_two = $5;
-            map { $_ =~ s/^0+// if defined $_ } @cpy;
-            $info->{'startdate'} = sprintf "%4d-%02d-%02d", $cpy[2], $cpy[1], $cpy[0];
-            if(defined $date_two and $date_two !~ /\?/){
-              $info->{'enddate'} = sprintf "%4d-%02d-%02d", $cpy[5], $cpy[4], $cpy[3];
-            }
-          }
-        },
-
-      'Tmp. Rating' =>
-        sub {
-          if(not defined $info{'rating'} and $_[1] =~ /(\d+\.\d+)/){
-            $info{'rating'} = $1
-          }
-         }
-    );
-
-  # This is the core parser for a show page.
-  # The trick here is to locate the definition piece and find field/value
-  # pairs. Each pair is passed into a translation table that changes the data
-  # as it sees fit.
-  my $tree = HTML::TreeBuilder->new_from_content($content);
-  my $anime_deflist = $tree->look_down('_tag', 'div', 'class', qr/.*g_definitionlist\s+data.*/i)
-    or do { return undef }; # we're interested in the core anime info
-  foreach my $field ($anime_deflist->look_down('_tag', 'th', 'class', qr/field/i)){
-    if(not $field->parent()){ next } # this shouldn't arise
-    my $value = $field->parent()->look_down('_tag', 'td', 'class', qr/value/i)
-      or next; # this shouldn't arise either
-    # Find a label if we can (skips the junk found in title fields)
-    if(my $tmp = $value->look_down('_tag', 'label')){
-      $value = $tmp;
-    }
-    my ($left, $right) = map {
-      decode_entities(space_collapse($_->as_text()));
-    } ($field, $value);
-    if(defined $translation{$left}){
-      $translation{$left}->(\%info, $right, $value);
+  # map titles
+  $titles->{title} =~ s/\n.+//;
+  $info{'maintitle'} = $titles->{title};
+  if(ref $titles->{official_title} ne 'ARRAY'){
+    $info{'titles'}[0] = $titles->{official_title};
+  } else {
+    foreach my $title (@{$titles->{official_title}}){
+      push @{$info{'titles'}}, decode_entities($title);
     }
   }
-  $tree->delete;
+
+  # map genres (force array type)
+  $info{genres} = $misc->{genre};
+  $info{genres} = [ $info{genres} ] if ref $info{genres} ne 'ARRAY';
+
+  # map type
+  if($misc->{type} =~ /([^,]+),\s*(\d+)\s*episodes/){
+    $info{'type'}   = $1;
+    $info{'numeps'} = $2;
+  } else {
+    $info{type} = $misc->{type}
+  }
+
+  # map official page
+  $info{url} = $misc->{url};
+
+  # map rating
+  if(defined $misc->{rating}){
+    $info{rating} = $misc->{rating};
+  } else {
+    $info{rating} = $misc->{tmprating};
+  }
+
+  # map dates
+  if($misc->{year} =~ /(\d{1,2})\.(\d{1,2})\.(\d{4})(\s+till\s+(\?|(\d{1,2})\.(\d{1,2})\.(\d{4})))?/){
+    my @cpy = ($1, $2, $3, $6, $7, $8);
+    my $date_two = $5;
+    map { $_ =~ s/^0+// if defined $_ } @cpy;
+    $info{'startdate'} = sprintf "%4d-%02d-%02d", $cpy[2], $cpy[1], $cpy[0];
+    if(defined $date_two and $date_two !~ /\?/){
+      $info{'enddate'} = sprintf "%4d-%02d-%02d", $cpy[5], $cpy[4], $cpy[3];
+    }
+  }
 
   return \%info;
-}
-
-sub add_title {
-  push @{$_[0]->{'titles'}}, decode_entities($_[1]);
 }
 
 sub strip {

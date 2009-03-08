@@ -65,7 +65,7 @@ sub irc_privmsg {
 sub trigger_anidb {
   my ($server, $target, $to, $from, $address, $query) = @_;
 
-  my $anidb = new anidb('Database' => 'pikabot')
+  my $anidb = new anidb('Database' => $ENV{HOME} . '/.irssi/anidb.db')
     or do {
       $server->command("msg $target \x0311AniDB: Error pulling up anidb module.");
       return;
