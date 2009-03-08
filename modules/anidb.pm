@@ -1,6 +1,6 @@
 # anidb.pm: AniDB screen-scraper module (UDP protocol sucks ass)
 #
-# Copyright (C) 2006   Tristan Willy <tristan.willy at gmail.com>
+# Copyright (C) 2006-2009  Tristan Willy <tristan.willy at gmail.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 2
