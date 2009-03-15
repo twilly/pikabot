@@ -590,12 +590,11 @@ sub anidb_anime_parse {
   # map titles
   $titles->{title} =~ s/\n.+//;
   $info{'maintitle'} = $titles->{title};
-  if(ref $titles->{official_title} ne 'ARRAY'){
-    $info{'titles'}[0] = $titles->{official_title};
-  } else {
-    foreach my $title (@{$titles->{official_title}}){
+  push @{$info{'titles'}}, $info{'maintitle'};
+  $titles->{official_title} = [ $titles->{official_title} ]
+      if ref $titles->{official_title} ne 'ARRAY';
+  foreach my $title (@{$titles->{official_title}}){
       push @{$info{'titles'}}, decode_entities($title);
-    }
   }
 
   # map genres (force array type)
