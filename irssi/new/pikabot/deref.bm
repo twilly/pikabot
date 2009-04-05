@@ -1,49 +1,32 @@
 #!/usr/bin/perl -w
-#
-# deref.bm: A URL dereference module for pikabot
-#
-# Most Parts Copyright (C) 2006   Tristan Willy <tristan.willy at gmail.com>
-# The Rest Copyright (C) 2009   Justin Lee <kool.name at gmail.com>
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License version 2
-# as published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 use LWP;
 
 '!(?i:deref(?:erence)?)' => sub {
-  my ($trigger, $message, $nick, $address, $target, $server) = @_;
+	my ($trigger, $message, $nick, $address, $target, $server) = @_;
 
-  defined($target) or
-    $target = $nick;
+	defined($target) or
+		$target = $nick;
 
-  my ($url) = split(/\s+/, $message, 2); # we're only gonna deref up to the first space
+	my ($url) = split(/\s+/, $message, 2); # we're only gonna deref up to the first space
 
-  my $agent = LWP::UserAgent->new(
-    'max_redirect' => 0,
-    'agent' => 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) Gecko/20060124 Firefox/1.5.0.1',
-  );
+	my $agent = LWP::UserAgent->new(
+		'max_redirect' => 0,
+		'agent' => 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) Gecko/20060124 Firefox/1.5.0.1',
+	);
 
-  my ($r) = $agent->get($url);
+	my ($r) = $agent->get($url);
 
-  ($r->code == 302 or
-    $r->code == 301) or do {
-      $server->command("msg $target Whoops, I can't dereference that.");
-      return (0, $trigger, $url, undef, $nick, $address, $target, $server);
-  };
+	($r->code == 302 or
+		$r->code == 301) or do {
+			$server->command("msg $target Whoops, I can't dereference that.");
+			$server->command("msg $target Usage: $trigger http://redirect.com/shorturl");
+			return (0, $trigger, $url, undef, $nick, $address, $target, $server);
+	};
 
-  my $deref = $r->header('Location');
+	my $deref = $r->header('Location');
 
-  $server->command("msg $target Location: $deref");
+	$server->command("msg $target Location: $deref");
 
-  return (1, $trigger, $url, $deref, $nick, $address, $target, $server);
+	return (1, $trigger, $url, $deref, $nick, $address, $target, $server);
 }

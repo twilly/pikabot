@@ -1,21 +1,4 @@
 #/usr/bin/perl -w
-# bot.pl: A bot for Irssi that uses a modular trigger system.
-#
-# Copyright (C) 2009   Justin Lee <kool.name at gmail.com>
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License version 2
-# as published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
 
 use strict;
 use warnings;
@@ -24,44 +7,40 @@ use lib '/home/user/library/perl';
 
 use Irssi;
 use Irssi::Trigger;
-use vars qw($VERSION %IRSSI $TRIGGER);
-
 
 # some globals
 sub MAIN_DIRECTORY () { '/home/user/.irssi' }
 sub COMPONENT_DIRECTORY () { MAIN_DIRECTORY . '/scripts/pikabot' }
-sub BOT_NAME () { 'pikabot' }
+sub SCRIPT_NAME () { 'pikabot next-gen' }
 
-# irssi info
-$VERSION = '0.' . '0' x 30 . '1'; # ha! ha!
+use vars qw($VERSION %IRSSI $TRIGGER);
+
+$VERSION = '0.01';
 
 %IRSSI = (
-  'authors'     => 'Justin Lee',
-  'contact'     => 'kool.name at gmail.com',
-  'name'        => BOT_NAME,
+  'authors' => 'Tristan Willy, Justin Lee, Andreas Högström',
+  'contact' => 'tristan.willy, kool.name, superjojo at gmail.com',
+  'name'    => SCRIPT_NAME,
   'description' => 'A cute bot for irssi!  It does various silly things.',
-  'license'     => 'GNU GPL v2',
+  'license' => 'GNU GPL v2',
 );
 
-
-# create the trigger-parser, if I don't include it in use vars irssi throws warnings
+# create the trigger-parser
 $TRIGGER = Irssi::Trigger->new(
   {
-    'PARSER'          => 'MESSAGE',
-    'OVERLOADING'     => 1,
+    'PARSER'    => 'MESSAGE',
+    'OVERLOADING'   => 1,
     'GLOBAL CHANNELS' => [
-      '(?i:51)',
       '(?i:honobono)',
     ],
   },
 );
 
-print BOT_NAME, ": Object created.";
-
+print SCRIPT_NAME, ": Object created.";
 
 # find the components
 opendir(CMP, COMPONENT_DIRECTORY) or
-  die BOT_NAME, ": $!";
+  die SCRIPT_NAME, ": $!";
 
 my %trigger = map {
   my $file = COMPONENT_DIRECTORY . "/$_";
@@ -73,12 +52,11 @@ my %trigger = map {
 } readdir(CMP);
 
 closedir(CMP) or
-  die BOT_NAME, ": $!";
+  die SCRIPT_NAME, ": $!";
 
-print BOT_NAME, ': Components found: ', scalar keys(%trigger), "";
+print SCRIPT_NAME, ': Components found: ', scalar keys(%trigger);
 
-
-# register the triggers
+# register the components
 $TRIGGER->register->trigger(
   {
     %trigger
@@ -88,19 +66,29 @@ $TRIGGER->register->trigger(
 # free some space
 undef(%trigger);
 
-
-# core thing
+# core
 sub trigger {
-  my ($status) = $TRIGGER->gazelle(@_);
+  my ($status, @info) = $TRIGGER->gazelle(@_);
 
-  print BOT_NAME, ': Trigger was ', $status ? "successful." : "unsuccessful.";
+  defined($status) or
+    return;
+
+  $status and do {
+    if ($info[3] eq $info[5]) {
+      print SCRIPT_NAME, ": Private $info[0] from $info[3] successful.";
+    } else {
+      print SCRIPT_NAME, ": Public $info[0] from $info[3] successful.";
+    }
+
+    return;
+  };
+
+  print SCRIPT_NAME, ": $info[0] from $info[3] was not successful.";
 }
 
-
-# initialize the trigger thing
+# initialize the trigger system
 $TRIGGER->ike;
 
-
-# add signals!
+# add the signals
 Irssi::signal_add('message public', 'trigger');
 Irssi::signal_add('message private', 'trigger');
