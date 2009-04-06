@@ -33,7 +33,7 @@ package Pikabot::Config;
 use strict;
 use warnings;
 
-use Pikabot::Reports qw(ERRSTR);
+use Pikabot::Reports qw(ERROR);
 
 #our (@ISA, @EXPORT_OK);
 #BEGIN {
