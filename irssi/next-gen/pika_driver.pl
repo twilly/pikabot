@@ -23,21 +23,13 @@
 ###
 # History:
 #
+#   2009-04-07:
+#     - scratch that, we're back to the start
 #   2009-04-06:
 #     - coded initial crap
 
 use strict;
 use warnings;
 
+use Irssi;
 use Pikabot;
-
-my %config = (
-  'BOT_NAME' => 'test_bot', # section name for irssi settings
-  'BOT_VERSION' => '0',
-  'COMPONENT_DIRECTORY' => '.',
-  'GLOBAL_CHANNELS' => [ '(?i:test)' ],
-);
-
-Pikabot->config(\%config);
-
-my $bot = Pikabot->spawn;
