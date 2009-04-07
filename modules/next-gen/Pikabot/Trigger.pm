@@ -34,10 +34,10 @@ use strict;
 use warnings;
 
 use Carp;
-use Pikabot::Config;
+
 use Pikabot::Reports qw(ERROR);
 
-# inlined constants, who needs `use constant {};`?
+# inlined constants
 sub SECTION_NAME () { 'Trigger' }
 
 
@@ -47,29 +47,14 @@ sub new {
 }
 
 # register method, stores a trigger in the hash
-sub register (\%;$) {
+sub register ($\%) {
   my $self = shift;
 
   ref($self) or
     warn, confess ERROR(3, SECTION_NAME);
 
-  my ($trigger, $overload) = @_;
-
-  defined($overload) or
-    $overload = 0;
-  keys(%{$trigger}) > 0 or
-    warn, croak ERROR(2, SECTION_NAME);
-
-  foreach my $t (keys(%{$trigger})) {
-    (exists($self->{$t}) and
-      not $overload) and
-        warn, croak ERROR(0, SECTION_NAME, "'$t'");
-    (ref($trigger->{$t}) eq 'ARRAY' and
-      @{$trigger->{$t}} == 2) or # could insert data checks here
-        warn, croak ERROR(1, SECTION_NAME, "'$t'");
-
-    $self->{$t} = $trigger->{$t};
-  }
+  my ($trigger, $layout) = @_;
+  $self->{$trigger} = $layout;
 
   return (1);
 }

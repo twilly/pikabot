@@ -26,14 +26,16 @@ package Pikabot::Reports;
 ###
 # History:
 #
+#   2009-04-07:
+#     - recoded "ERROR"
+#     - dropped config module entirely to go full OO
 #   2009-04-06:
+#     - moved "ERROR" to this module
 #     - finished initial coding and testing of functionality
 
 
 use strict;
 use warnings;
-
-use Pikabot::Config;
 
 our (@ISA, @EXPORT_OK);
 
@@ -42,6 +44,9 @@ BEGIN {
   @ISA = qw(Exporter);
   @EXPORT_OK = qw(ERRSTR REPSTR ERROR);
 }
+
+# inlined constants
+sub SECTION_NAME () { 'Reports' }
 
 
 sub ERRSTR ($) {
@@ -62,6 +67,11 @@ sub ERRSTR ($) {
     'Unable to edit config options:  Option does not exists', #13
     'Sorry bub, that didn\'t work', #14
     'Can\'t spawn a Pikachu that isn\'t setup :/', #15
+    'Unable to spawn:  Irssi settings strings were not configured', #16
+    'Unable to initialize:  You don\'t seem to be running Irssi', #17
+    'Called too early', #18
+    'Unable to configure:  Options must be hash reference', #19
+    'Unable to configure:  Unknown option', #20
 
   ]->[int(abs(shift))]; # I don't even trust myself.
 }
@@ -71,23 +81,21 @@ sub REPSTR ($) {
 }
 
 sub ERROR ($;$$) {
-  my ($level, $section, $string) = @_;
+  my ($level, $section, $message) = @_;
 
-  if (defined($section)) {
-    $section = $Pikabot::Config::BOT_NAME . '::' . $section . ': ';
-  } else {
-    $section = $Pikabot::Config::BOT_NAME . ': ';
-  }
+  defined(ERRSTR($level)) or
+    return (warn 'Pikabot::Reports: You gotta be real dumb to mess this up');
 
-  if (defined($string)) {
-    $string = ": $string";
-  } else {
-    $string = '';
-  }
+  defined($section) or
+    $section = '';
+  defined($message) or
+    $message = '';
+  length($section) and
+    $section = "::$section";
+  length($message) and
+    $message = ": $message";
 
-  return (
-    $section . ERRSTR($level) . $string
-  );
+  return (sprintf('Pikabot%s: %s%s', $section, ERRSTR($level), $message));
 }
 
 
