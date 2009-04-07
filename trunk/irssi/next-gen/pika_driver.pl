@@ -32,7 +32,7 @@ use warnings;
 use Pikabot;
 
 my %config = (
-  'BOT_NAME' => 'test_bot',
+  'BOT_NAME' => 'test_bot', # section name for irssi settings
   'BOT_VERSION' => '0',
   'COMPONENT_DIRECTORY' => '.',
   'GLOBAL_CHANNELS' => [ '(?i:test)' ],

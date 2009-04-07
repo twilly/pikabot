@@ -20,11 +20,21 @@ package Pikabot;
 ###
 # To do:
 #
+#   2009-04-07:
+#     - Simplify configuration a little (E.G: For global channels, allow
+#       scalar values to be pushed onto the
+#       stack.
+#     - (DROP) possibly move the inclusion of Text::ParseWords out to compile
+#       time
 #   2009-04-06:
-#     - fix evil hax in config method
+#     - (DONE) fix evil hax in config method
 ###
 # History:
 #
+#   2009-04-07:
+#     - coded "configure" method
+#     - coded "new" method
+#     - dropped config module entirely to go full OO
 #   2009-04-06:
 #     - config method coded, beware of it's evil
 
@@ -32,32 +42,98 @@ package Pikabot;
 use strict;
 use warnings;
 
+sub REVISION () { 'r88' }
+
 use Carp;
 
-use Pikabot::Config;
 use Pikabot::Reports qw(ERROR);
 use Pikabot::Trigger;
 
+#BEGIN {
+#  eval {
+#    require Irssi;
+#  };
+#
+#  $@ and
+#    warn, croak ERROR(17);
+#}
 
-sub config (\%) {
+sub nouveau {
   my $class = shift;
 
-  my ($config) = @_;
 
-  foreach my $c (keys(%{$config})) {
-    eval "\$Pikabot::Config::$c = '" . $config->{$c} . '\';'; # evil hax, but whatever
-    $@ and
-      warn, croak ERROR(14);
-  }
+  my (
+    $BOT,
 
-  $Pikabot::Config::CONFIGED = 1;
+    # Enable or disable the use of Irssi's settings.
+    $USE_IRSSI_SETTINGS,
+
+    # If the use of Irssi's settings is enabled, these will be what
+    # is looked for.  They should be prefixed by "${BOT_NAME}_" for
+    # safety.
+    $IRSSI_SETTINGS_GLOBAL_CHANNELS,
+    $IRSSI_SETTINGS_COMPONENT_DIRECTORY,
+
+    # These must be set by the driver.
+    $BOT_NAME,
+    $BOT_VERSION,
+    $BOT_AUTHORS,
+
+    # These can be set by the driver, or Irssi's settings.
+    $BOT_COMPONENT_DIRECTORY,
+    $BOT_COMPONENT_EXT_REGEX,
+    $BOT_GLOBAL_CHANNELS,
+  ) = (
+    undef,
+    0,
+    undef, undef,
+    undef, undef, {},
+    undef, undef, [],
+  );
+
+
+  $BOT = [
+    # Settings & configuration.
+    {
+      USE_IRSSI_SETTINGS => \$USE_IRSSI_SETTINGS,
+      IRSSI_SETTINGS_GLOBAL_CHANNELS => \$IRSSI_SETTINGS_GLOBAL_CHANNELS,
+      IRSSI_SETTINGS_COMPONENT_DIRECTORY => \$IRSSI_SETTINGS_COMPONENT_DIRECTORY,
+      BOT_NAME => \$BOT_NAME,
+      BOT_VERSION => \$BOT_NAME,
+      BOT_AUTHORS => \$BOT_AUTHORS,
+      BOT_COMPONENT_DIRECTORY => \$BOT_COMPONENT_DIRECTORY,
+      BOT_COMPONENT_EXT_REGEX => \$BOT_COMPONENT_EXT_REGEX,
+      BOT_GLOBAL_CHANNELS => \$BOT_GLOBAL_CHANNELS,
+    },
+  ];
+
+
+  return (bless $BOT, $class);
 }
 
-sub spawn {
-  my $class = shift;
+sub configure {
+  my $pikachu = shift;
 
-  $Pikabot::Config::CONFIGED or
-    warn, croak ERROR(15);
+  ref($pikachu) or
+    warn, croak ERROR(18, '', 'configure');
+
+
+  my ($options) = @_;
+
+  if (defined($options)) {
+    ref($options) eq 'HASH' or
+      warn, croak ERROR(19);
+  } else {
+    return (keys(%{$pikachu->[0]}));
+  }
+
+
+  foreach my $o (keys(%{$options})) {
+    exists($pikachu->[0]->{$o}) or
+      warn, croak ERROR(20, '', $o);
+
+    $pikachu->[0]->{$o} = $options->{$o};
+  }
 }
 
 
