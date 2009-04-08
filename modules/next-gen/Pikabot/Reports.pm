@@ -20,6 +20,8 @@ package Pikabot::Reports;
 ###
 # To do:
 #
+#   2009-04-07:
+#     - Use "caller()" somehow for the ERRSTR/ERROR function?
 #   2009-04-06:
 #     - boil the list of messages down some
 #     - (DONE) fix exporter bug
@@ -51,7 +53,7 @@ sub SECTION_NAME () { 'Reports' }
 
 sub ERRSTR ($) {
   return [
-    'Unable to overload existing trigger:  Overloading not enabled', #0
+    'Unable to overload existing trigger:  Overloading not supported, please unregister first', #0
     'Unable to register trigger:  Invalid trigger', #1
     'Unable to register triggers:  No triggers given', #2
     'Reference error', #3 - this one is bad
@@ -72,6 +74,13 @@ sub ERRSTR ($) {
     'Called too early', #18
     'Unable to configure:  Options must be hash reference', #19
     'Unable to configure:  Unknown option', #20
+    'Invalid use', #21
+    'Unable to get option:  Unknown option', #22
+    'Unable to spawn:  Missing required option', #23
+    'Unable to get option:  Option does not exist; or, is not defined', #24
+    'Unable to spawn:  Invalid or undefined regex supplied', #25
+    'Unable to register trigger:  Please check your components code', #26
+    'Unable to load component:  Invalid structure', #27
 
   ]->[int(abs(shift))]; # I don't even trust myself.
 }

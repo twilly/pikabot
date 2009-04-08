@@ -20,11 +20,18 @@ package Pikabot::Trigger;
 ###
 # To do:
 #
+#   2009-04-07:
+#     - (DONE 2009-04-08) add data checks when registering a trigger
 ###
 # History:
 #
+#   2009-04-08:
+#     - developed a new (better) error throwing method
+#   2009-04-07:
+#     - changed the layout of triggers data structure again >_>
 #   2009-04-06:
-#     - changed around the trigger's data structure, now it holds some meta as well as the trigger code
+#     - changed around the trigger's data structure, now it holds some meta as
+#       well as the trigger code
 #     - updated error throwing method
 #     - added some constants to hold information for error throwing
 #     - finished initial coding and testing of functionality
@@ -46,18 +53,47 @@ sub new {
   return (bless {}, shift);
 }
 
+
 # register method, stores a trigger in the hash
-sub register ($\%) {
+sub register ($\@) {
   my $self = shift;
 
   ref($self) or
     warn, confess ERROR(3, SECTION_NAME);
 
+
+  # Layout should hold:
+  #   0) full file name of components (scalar)
+  #   1) trigger (code ref)
   my ($trigger, $layout) = @_;
+
+
+  # Check the trigger:
+  (not ref($trigger) and
+    ref($layout) eq 'ARRAY' and
+      @{$layout} == 2
+        ref($layout->[1]) eq 'CODE' and
+          -e $layout->[0]) or do {
+
+    carp ERROR(1, SECTION_NAME);
+    return (undef);
+  };
+
+  exists($self->{$trigger}) and do {
+
+    carp ERROR(0, SECTION_NAME);
+    return (undef);
+  };
+
+
+  # Register the trigger:
   $self->{$trigger} = $layout;
 
+
+  # Return a true value:
   return (1);
 }
+
 
 # unregister method, removes triggers that match a given regex from the hash
 sub unregister ($) {
@@ -66,25 +102,34 @@ sub unregister ($) {
   ref($self) or
     warn, confess ERROR(3, SECTION_NAME);
 
+
   my ($trigger) = @_;
   my $match = 0;
 
-  defined($trigger) or
-    warn, croak ERROR(4, SECTION_NAME);
+  defined($trigger) or do {
+    carp ERROR(4);
+    return (undef);
+  };
+
 
   foreach my $t (keys(%{$self})) {
     $t =~ /$trigger/o and do {
-      delete($self->{$t}) or
-        warn, croak ERROR(5, SECTION_NAME, "'$t'");
+      delete($self->{$t}) or do {
+        carp ERROR(5);
+        return (undef);
+      };
+
       $match++;
     };
   }
 
+
   $match > 0 or
-    warn, croak ERROR(6, SECTION_NAME);
+    carp ERROR(6);
 
   return ($match);
 }
+
 
 # wraps keys()
 sub triggers () {
@@ -93,28 +138,8 @@ sub triggers () {
   ref($self) or
     warn, confess ERROR(3, SECTION_NAME);
 
+
   return (keys(%{$self}));
-}
-
-sub channels (;$) {
-  my $self = shift;
-
-  ref($self) or
-    warn, confess ERROR(3, SECTION_NAME);
-
-  my ($trigger) = @_;
-
-  defined($trigger) and do {
-    exists($self->{$trigger}) or
-      return (undef);
-    return ($self->{$trigger}->[1]);
-  };
-
-  return (
-    map {
-      $_ => $self->{$_}->[1]
-    } keys(%{$self})
-  );
 }
 
 
