@@ -20,6 +20,11 @@ package Pikabot;
 ###
 # To do:
 #
+#   2009-04-14:
+#     - Add checks to "ike" method.
+#   2009-04-11:
+#     - Replace spawn checks/config with call to $main::VERSION and
+#       %main::IRSSI?  Problems might occur if this module is nested...
 #   2009-04-07:
 #     - Simplify configuration a little (E.G: For global channels, allow
 #       scalar values to be pushed onto the stack.)
@@ -30,6 +35,22 @@ package Pikabot;
 ###
 # History:
 #
+#   2009-04-14:
+#     - coded "ike" method, it needs checks to make sure that there
+#       are some triggers loaded
+#     - tested the new methods, they seem to be working OK
+#     - coded the "load" method and two internal methods "_require" and
+#       "_exists_setting".  "_reguire" is a custom built require subroutine.
+#   2009-04-11:
+#     - Forget about global channels for now, just make every trigger state
+#       it's channels explicitly.
+#     - Started yet another rewrite based on earlier brain waves and some
+#       light reading through my big ole' perl black book that I forgot I
+#       owned.
+#   2009-04-10:
+#     - brain wave #2: build my own pseudo require routine for components
+#     - brain wave regarding pikabot components: Why make it complex?  Will
+#       just use perl modules now.
 #   2009-04-08:
 #     - reworked "train" and "grab" slightly
 #   2009-04-07:
@@ -43,204 +64,251 @@ package Pikabot;
 use strict;
 use warnings;
 
-sub REVISION () { 'r88' }
+# Random globals:
+sub MODULE_REGEX () { '\.(?i:pm)$' }
+sub BOT_REVISION () { 'r91' }
+sub SETTING_TYPE () { qw(str int bool time level size) }
+sub SETTING_BASE () { 'Irssi::settings_add_' }
 
 use Carp;
 use Text::ParseWords; # I have to admit, quotewords() is useful.
 
-use Pikabot::Reports qw(ERROR);
 use Pikabot::Trigger;
+use Pikabot::Reports;
 
-#BEGIN {
-#  eval {
-#    require Irssi;
-#  };
-#
-#  $@ and
-#    warn, croak ERROR(17);
-#}
+my $report;
 
-sub new {
-  my $class = shift;
+BEGIN {
+  $report = Pikabot::Reports->spawn(__PACKAGE__) or do {
 
+    die __PACKAGE__ . ': Error spawning reporting object';
+  };
 
-  my (
-    $BOT,
-
-    # Enable or disable the use of Irssi's settings.
-    $USE_IRSSI_SETTINGS,
-
-    # These must be set by the driver.
-    $BOT_NAME,
-    $BOT_VERSION,
-    $BOT_AUTHORS,
-
-    # These can be set by the driver, or Irssi's settings.
-    $BOT_COMPONENT_DIRECTORY,
-    $BOT_COMPONENT_EXT_REGEX,
-    $BOT_GLOBAL_CHANNELS,
-
-    # Reserved for future stuff.
-  ) = (
-    undef,
-    0,
-    undef, undef, {},
-    undef, undef, [],
-
-  );
-
-
-  $BOT = [
-    # Settings & configuration.
-    {
-      USE_IRSSI_SETTINGS => \$USE_IRSSI_SETTINGS,
-      BOT_NAME => \$BOT_NAME,
-      BOT_VERSION => \$BOT_NAME,
-      BOT_AUTHORS => \$BOT_AUTHORS,
-      BOT_COMPONENT_DIRECTORY => \$BOT_COMPONENT_DIRECTORY,
-      BOT_COMPONENT_EXT_REGEX => \$BOT_COMPONENT_EXT_REGEX,
-      BOT_GLOBAL_CHANNELS => \$BOT_GLOBAL_CHANNELS,
-    },
-
-    # Reserved for future stuff.
-  ];
-
-
-  return (bless $BOT, $class);
-}
-
-sub train {
-  my $pikachu = shift;
-
-  ref($pikachu) or
-    warn, confess ERROR(3);
-
-
-  my ($options) = @_;
-
-  defined($options) or
-    warn, croak ERROR(19)
-  ref($options) eq 'HASH' or
-    warn, croak ERROR(19);
-
-
-  foreach my $o (keys(%{$options})) {
-    exists($pikachu->[0]->{$o}) or
-      warn, croak ERROR(20, '', $o);
-
-    $pikachu->[0]->{$o} = $options->{$o};
-  }
-}
-
-sub grab {
-  my $pikachu = shift;
-
-  ref($pikachu) or
-    warn, confess ERROR(3);
-
-
-  my ($option) = @_;
-
-  defined($option) or
-    return (keys(%{$self->[0]}));
-  ref($option) and
-    warn, croak ERROR(22)
-  exists($pikachu->[0]->{$option}) or
-    warn, croak ERROR(22);
-
-
-  return ($pikachu->[0]->{$option});
+#  require Irssi; # don't import anything
 }
 
 sub spawn {
-  my $pikachu = shift;
+  my $class = shift;
+  my ($name, $version, $authors) = @_;
 
-  ref($pikachu) or
-    warn, confess ERROR(3);
+  (defined($name) and
+    not ref($name) and
+      length($name)) or do {
 
+    warn, croak $report->error(1, 'Missing valid bot name');
+  };
+  (ref($authors) eq 'HASH' and
+    keys(%{$authors}) > 0) or do {
 
-  # Check required options:
-  defined($pikachu->[0]->{'BOT_NAME'}) or
-    warn, croak ERROR(23);
-  defined($pikachu->[0]->{'BOT_VERSION'}) or
-    warn, croak ERROR(23);
-  keys(%{$pikachu->[0]->{'BOT_AUTHORS'}}) > 0 or
-    warn, croak ERROR(23);
+    warn, croak $report->error(1, 'Missing valid authors hash');
+  };
+  (defined($version) and
+    not ref($version) and
+      length($version)) or do {
 
-  # If we're getting the other options from Irssi, let's do it:
-  $pikachu->[0]->{'USE_IRSSI_SETTINGS'} and do {
-    my $gc = Irssi::settings_get_str($pikachu->[0]->{'BOT_NAME'} . '_global_channels')
-
-    length($gc) or
-      warn, croak ERROR(24);
-
-    $pikachu->[0]->{'BOT_GLOBAL_CHANNELS'} = [ quotewords(',', 0, $gc) ];
-
-
-    my $cd = Irssi::settings_get_str($pikachu->[0]->{'BOT_NAME'} . '_component_directory');
-
-    length($cd) or
-      warn, croak ERROR(24);
-
-    $pikachu->[0]->{'BOT_COMPONENT_DIRECTORY'} = $cd;
-
-
-    my $cr = Irssi::settings_get_str($pikachu->[0]->{'BOT_NAME'} . '_component_ext_regex');
-
-    defined($cr) or
-      warn, croak ERROR(24); # Irssi seem to always return a defined value, and techincally a regex of '' is accetable..... so I dunno about this check
-
-    $pikachu->[0]->{'BOT_COMPONENT_EXT_REGEX'} = $cr;
+    warn, croak $report->error(1, 'Missing valid version string');
   };
 
 
-  # Time to check the other options:
-  @{$pikachu->[0]->{'BOT_GLOBAL_CHANNELS'}} > 0 or
-    warn, croak ERROR(8);
-  -d $pikachu->[0]->{'BOT_COMPONENT_DIRECTORY'} or
-    warn, croak ERROR(7);
-  defined($pikachu->[0]->{'BOT_COMPONENT_EXT_REGEX'}) or
-    warn, croak ERROR(25);
+  my $pika = [
+    $name,
+    $version,
+    $authors,
+    Pikabot::Trigger->spawn,
+    # more stuff here
+    0,
+  ];
 
 
-  # Find the components:
-  opendir(CMP, $pikachu->[0]->{'BOT_COMPONENT_DIRECTORY'}) or
-    warn, croak ERROR(9);
+  return (bless $pika, $class);
+}
 
-  my @components = grep {
-    not -d and
-      /@{[ $pikachu->[0]->{'BOT_COMPONENT_EXT_REGEX'} ]}/o
-  } readdir(CMP);
+sub load {
+  my $pika = shift;
 
-  close(CMP) or
-    warn, croak ERROR(10);
+  ref($pika) eq __PACKAGE__ or
+    warn, confess $report->error(0);
 
 
-  # Load the components:
-  $pikachu->[1] = Pikabot::Trigger->new; # holds the code
-  $pikachu->[2] = Pikabot::Channel->new; # holds channel list
-  $pikachu->[3] = Pikabot::Signal->new; # holds signal list
+  foreach my $component (@_) {
+    my $symbol = _require($component);
 
-  foreach my $c (@components) {
-    my $f = $pikachu->[0]->{'BOT_COMPONENT_DIRECTORY'} . "/$c";
-    my ($t, $d) = do $f;
+    defined($symbol) or do {
 
-    (ref($d) eq 'ARRAY' and
-      @{$d} == 3 and
-        not ref($t)) or
-          warn, croak ERROR(27);
+      warn, croak $report->error(4, 'Overloading not enabled');
+    };
 
 
-    for (my $i = @{$d}; $i--; ) {
-      $pikachu->[$i]->register($t, $d->[$i]) or
-        warn, croak ERROR(26);
+    eval {
+      $symbol->BOOT;
+    };
+
+    $@ and do {
+
+      warn, croak $report->error(4, "Unable to BOOT $component: $@");
+    };
+
+
+    my %setting = $symbol->SETTINGS;
+#    my @signal = $symbol->SIGNALS; # reserved for future use
+    my %trigger = $symbol->TRIGGERS;
+    my $name = lc($symbol);
+    my $heyo = lc(ref($pika));
+
+    $name =~ s/(?:\:\:|\s+)/_/go;
+    $name =~ s/component//igo;
+    $name =~ s/_+/_/go;
+    $heyo =~ s/(?:\:\:|\s+)/_/go;
+    $heyo =~ s/_+/_/go;
+
+
+    # Parse the settings.
+    foreach my $i (keys(%setting)) {
+      _exists_setting($setting{$i}->[0]) or do {
+
+        warn, croak $report->error(5, 'Unknown setting type "' . $setting{$i}->[0] . "\" for $i");
+      };
+
+      my $key = "${name}_${i}";
+      my $add = SETTING_BASE . $setting{$i}->[0] . "($heyo, $key, " . $setting{$i}->[1] . ');';
+
+      eval $add;
+
+      $@ and do {
+
+        warn, croak $report->error(5, "Unable to add setting $key: $@");
+      };
+
+
+      $setting{$i} = $key;
+    }
+
+    # Load the trigger!
+    foreach my $t (keys(%trigger)) {
+      $pika->[3]->register($t => [$trigger{$t}, [ $symbol->CHANNELS ], [ keys(%setting) ]]) or do {
+
+        warn, croak $report->error(5);
+      };
     }
   }
 
+  return (scalar $pika->[3]->triggers);
+}
 
-  # Return the number of components we loaded, incase the user is being verbose:
-  return (scalar $pikachu->[1]->triggers);
+sub name {
+  my $pika = shift;
+
+  ref($pika) eq __PACKAGE__ or
+    warn, confess $report->error(0);
+
+
+  return ($pika->[0]);
+}
+
+sub version {
+  my $pika = shift;
+
+  ref($pika) eq __PACKAGE__ or
+    warn, confess $report->error(0);
+
+
+  return ($pika->[1]);
+}
+
+sub authors {
+  my $pika = shift;
+
+  ref($pika) eq __PACKAGE__ or
+    warn, confess $report->error(0);
+
+
+  my ($author) = @_;
+
+  not defined($author) and do {
+
+    return (keys(%{$pika->[2]}));
+  };
+  exists($pika->[2]->{$author}) and do {
+
+    return ($pika->[2]->{$author});
+  };
+
+
+  warn, croak $report->error(2);
+}
+
+sub ike {
+  my $pika = shift;
+
+  ref($pika) eq __PACKAGE__ or
+    warn, confess $report->error(0);
+
+
+  $pika->[-1] and do {
+
+    warn, croak $report->error(6);
+  };
+
+  $pika->[-1] = not $pika->[-1];
 }
 
 
-'Pikachu!';
+# My stuff~!
+sub _require ($) {
+  my ($file) = @_;
+
+  exists($INC{$file}) and do {
+
+    $INC{$file} or do {
+
+      warn, croak $report->error(5, 'Compilation failed at %INC check');
+    };
+
+    return (undef);
+  };
+
+  foreach my $path (@INC) {
+    my $fullfile = "$path/$file";
+
+    -f $fullfile or do {
+
+      next;
+    };
+
+    $INC{$file} = $fullfile;
+    my $package = do $fullfile;
+
+    $@ and do {
+
+      $INC{$file} = undef;
+      warn, croak $report->error(5, "$@");
+    };
+    (defined($package) and
+      length($package)) or do {
+
+      delete($INC{$file});
+      warn, croak $report->error(5, "$file did not return a true value");
+    };
+
+
+    return ($package);
+  }
+
+  warn, croak $report->error(5, "Can't find $file in \@INC");
+}
+
+sub _exists_setting ($) {
+  my ($given) = @_;
+
+  foreach my $type (SETTING_TYPE) {
+    $given eq $type and do {
+
+      return (1);
+    };
+  }
+
+  return (0);
+}
+
+
+__PACKAGE__;
