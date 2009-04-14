@@ -33,3 +33,5 @@ use warnings;
 
 use Irssi;
 use Pikabot;
+
+use lib './components'; # this is the new method for including components
