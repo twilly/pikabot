@@ -22,9 +22,13 @@ package Pikabot::Component::Deref;
 ###
 # To do:
 #
+#   2009-04-14:
+#     - Move "$type" check (for send_message) out to driver or Pikabot?
 ###
 # History:
 #
+#   2009-04-14:
+#     - base coding done
 
 
 use strict;
@@ -32,11 +36,11 @@ use warnings;
 
 use LWP;
 
-# INIT
-#   This method is called first, it should do anything it needs to init the
+# BOOT
+#   This method is called first, it should do anything it needs to BOOT the
 #   compoment... E.G: Modify internal "global" variables, etc.
 #   Upon any kind of failure it should "die".
-sub INIT () {
+sub BOOT () {
   # la la la~
 }
 
@@ -69,6 +73,7 @@ sub SIGNALS () {
 #     - time (I don't really know.)
 #     - level (Not quite sure, either.)
 #     - size (Uh... Yeah.)
+#   The name you choose to give it is only used by you, so no worries about collisions.
 sub SETTINGS () {
   'user_agent' => [
     'str',
@@ -99,15 +104,16 @@ sub SETTINGS () {
 #   The input structure is something like:
 #     0) trigger caught (string)
 #     1) trigger data structure:
-#           0) message (string)
-#           1) nick (string)
-#           2) address of "nick" (string)
-#           3) target (string)
+#           - message => message string
+#           - nick => user who triggered the trigger
+#           - address => that user's address
+#           - target => where it's headed
+#           - server => irssi server_rec
 #             ... that's all for now
-#     2) server data struct (see irssi docs)
-#     3) settings data structure:
-#           - Contains a list of the full name of everything registered by
-#             the SETTINGS() method.  This way they aren't retrieved unless
+#     2) settings data structure:
+#           - Contains a hash of MY NAMES for the settings and their
+#             full name in Irssi for everything that was registered with
+#             the SETTINGS() method.  This way stuff isn't retrieved unless
 #             it's neccessary.  In the future this may be changed so that
 #             Pikabot (or the driver) has to grab them, but for now this
 #             seems like the best approach.
@@ -158,14 +164,16 @@ sub TRIGGERS () {
 
       return (
         0,
-        { 'error' => 'Malformed request' },
+        [ 'error' => 'Malformed request' ],
       )
     };
+    # Quick little hack to get the type for send_message...
     $data->{'server'}->ischannel($data->{'target'}) or
        ($data->{'target'} eq $data->{'nick'} and do {
 
       $type++;
     });
+    # Make sure there's something to deref.
     defined($data->{'message'}) or do {
 
       return (
@@ -174,20 +182,41 @@ sub TRIGGERS () {
         [ 'send_message' => $target, 'Next time try sending a url, too.', $type ],
       );
     };
+    # Make sure the user_agent setting is available in Irssi.
+    exists($setting->{'user_agent'}) or do {
+
+      return (
+        0,
+        [ 'error' => 'Couldn\'t find "user_agent" key' ],
+      );
+    };
+    # Make sure the max_redirect setting is available in Irssi.
+    exists($setting->{'max_redirect'}) or do {
+
+      return (
+        0,
+        [ 'error' => 'Couldn\'t find "max_redirect" key' ],
+      );
+    };
 
 
+    # Grab the URL.
     my ($url) = split(/\s+/, $data->{'message'});
 
+    # Make sure it's got something in it.
     length($url) or do {
 
       return (
         0,
         [ 'warning' => "$data->{'nick'} sent an apparently null url." ],
         [ 'send_message' => $target, 'I was unable to dereference that.', $type ],
+      )
+    };
 
+    # Setup the user agent for LWP.
     my ($agent) = LWP::UserAgent->new(
-      'max_redirect' => ,
-      'agent' => ,
+      'max_redirect' => Irssi::settings_get_int($setting->{'max_redirect'}),
+      'agent' => Irssi::settings_get_str($setting->{'user_agent'}),
     );
 
     my ($r) = $agent->get($url);
@@ -203,7 +232,11 @@ sub TRIGGERS () {
     };
 
 
-    ## NOT FINISHED
+    return (
+      1,
+      [ 'print' => "Dereferenced $url for $nick." ],
+      [ 'send_message' => $target, 'Location: ' . $r->header('Location'), $type ],
+    );
   }
 }
 
