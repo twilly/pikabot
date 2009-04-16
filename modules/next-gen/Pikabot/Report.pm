@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
-package Pikabot::Reports;
-# Pikabot::Reports: Container of all the error strings and report formats.
+package Pikabot::Report;
+# Pikabot::Report: Container of all the error strings and report formats.
 #
 # Copyright (C) 2009  Justin Lee  < kool.name at gmail.com >
 #
@@ -20,6 +20,8 @@ package Pikabot::Reports;
 ###
 # To do:
 #
+#   2009-04-16:
+#     - possibly remove Exporter completely, probably don't need it
 #   2009-04-07:
 #     - Use "caller()" somehow for the ERRSTR/ERROR function?
 #   2009-04-06:
@@ -28,6 +30,10 @@ package Pikabot::Reports;
 ###
 # History:
 #
+#   2009-04-16:
+#     - fixed the busted Exporter usage
+#   2009-04-14:
+#     - included the first call to caller!! :D (in spawn)
 #   2009-04-11:
 #     - switch to OO for some reason
 #   2009-04-07:
@@ -46,12 +52,19 @@ our (@ISA, @EXPORT_OK);
 BEGIN {
   require Exporter;
   @ISA = qw(Exporter);
-  @EXPORT_OK = qw(ERRSTR REPSTR ERROR);
+  @EXPORT_OK = qw(_error_string);
 }
 
 
 # my stuff
 sub _error_string ($) {
+  # This method will decimate IO... But since it's only called
+  # to die I don't see a problem. :P  Maybe it would be smarter
+  # to make an array of refs to subs outside the __DATA__ token
+  # and use SelfLoader?  Or simply pull an acme and parse __DATA__
+  # where it contains one error message per line, just set (or
+  # run through $. [line number]) to the one we want, and read it.
+  # But for now, I'm lazy and this will do.
   return [
     'Invalid object', #0
     'Unable to spawn', #1
@@ -60,14 +73,10 @@ sub _error_string ($) {
     'Unable to register', #4
     'Unable to load component', #5
     'You can\'t init the bot twice', #6
+    'Error fetching signal call', #7
 
   ]->[int(abs(shift))]; # I don't even trust myself.
 }
-
-sub _report_string ($) {
-  # reserved for future use
-}
-
 
 # methods
 sub spawn {
@@ -76,15 +85,13 @@ sub spawn {
 
   my ($package) = @_;
 
-  length($package) or
-    warn, return (undef);
+  defined($package) or do {
+
+    $package = caller;
+  };
 
 
   return (bless \$package, $class);
-}
-
-sub report {
-  # reserved for future stuff
 }
 
 sub error {
