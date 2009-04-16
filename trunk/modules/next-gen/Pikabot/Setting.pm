@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
-package Pikabot::Trigger;
-# Pikabot::Trigger: Module for dealing with triggers.
+package Pikabot::Setting;
+# Pikabot::Setting: Storage medium for Irssi settings.
 #
 # Copyright (C) 2009  Justin Lee  < kool.name at gmail.com >
 #
@@ -20,25 +20,9 @@ package Pikabot::Trigger;
 ###
 # To do:
 #
-#   2009-04-14:
-#     - Change the way triggers are registered to be less dumb.
-#   2009-04-07:
-#     - (DONE 2009-04-08) add data checks when registering a trigger
 ###
 # History:
 #
-#   2009-04-16:
-#     - From pc486's critique I decided to scrap most of this module. =.=
-#   2009-04-08:
-#     - developed a new (better) error throwing method
-#   2009-04-07:
-#     - changed the layout of triggers data structure again >_>
-#   2009-04-06:
-#     - changed around the trigger's data structure, now it holds some meta as
-#       well as the trigger code
-#     - updated error throwing method
-#     - added some constants to hold information for error throwing
-#     - finished initial coding and testing of functionality
 
 
 use strict;

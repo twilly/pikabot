@@ -27,6 +27,10 @@ package Pikabot::Component::Deref;
 ###
 # History:
 #
+#   2009-04-16:
+#     - Removed setting, signal, and channel boot methods... Now pc will be
+#       happy, right?   I think they'll get moved into a configuration file
+#       or be completely managed by the driver script... Who knows.
 #   2009-04-14:
 #     - base coding done
 
@@ -35,122 +39,86 @@ use strict;
 use warnings;
 
 use LWP;
+#use whatever::you::want;
 
-# BOOT
-#   This method is called first, it should do anything it needs to BOOT the
-#   compoment... E.G: Modify internal "global" variables, etc.
-#   Upon any kind of failure it should "die".
 sub BOOT () {
-  # la la la~
+  # BOOT - required package method
+  #   Method should return a true value, I don't care what.  It should also die()
+  #   if it runs into something it doesn't like... Please include a helpful
+  #   message as it will be passed along to the user.
+  #   I'm still not quite sure what to use this for, probably compile time
+  #   configuration such as: Making sure a user has a required database setup,
+  #   or has a "/proc/uptime" that is readable... I dunno.
+
+  return (1);
 }
 
-# CHANNELS
-#   Method should return a list of regexes for current channel to be matched
-#   against.  The regexes should make sure not to "capture" anything '(?:)' and
-#   should specify case insensitivity if and when they want it '(?i)'.  The
-#   regexes can optionally include the use of '^' and '$'.
-#   This allows for greater control of the channel inclusion, you can do something
-#   as loose as '(?i:anime)' or something as tight as '^(?:#|&)Anime-CHAT$'.
-sub CHANNELS () {
-  '^#(?i:honobono)$',
-  '^#51$',
-
-  # etc
-}
-
-sub SIGNALS () {
-  # reserved for future use
-}
-
-# SETTINGS
-#   Method should return a hash with keys of the name you want to store the
-#   data under, and values that are array refs of which item 0 is the type (required)
-#   and item 1 is the default value (optional).  The keys should use underscores
-#   in place of spaces.  The types are listed below:
-#     - str (string)
-#     - int (integer)
-#     - bool (boolean)
-#     - time (I don't really know.)
-#     - level (Not quite sure, either.)
-#     - size (Uh... Yeah.)
-#   The name you choose to give it is only used by you, so no worries about collisions.
-sub SETTINGS () {
-  'user_agent' => [
-    'str',
-    'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) Gecko/20060124 Firefox/1.5.0.1',
-  ],
-  'max_redirect' => [
-    'int',
-    0,
-  ]
-}
-
-
-# TRIGGERS
-#   Method should return one or more hash entries with trigger matching patterns
-#   as the keys and code references for their values.  The patterns may include
-#   one "capture" if they're intended for "ninja use"...  That is to say, if
-#   someone private messages the bot a command that has a channel as it's first
-#   argument then you could capture it for setting "$target".... Which would
-#   look something like: ^\s*!(?i:huggle(?:-glomp)?(?:s|z)?)\s*((?:#|&)\S+)?
-#   The value set to $1 will be checked first against $target, if they match
-#   then it will be left in the string, if not it will be checked against the
-#   trigger's channel list.  If it's found then it will be sent to that channel,
-#   if it isn't found the user will be yelled at.  If the ninja mode is not
-#   provided by a trigger, and $target is not set, then Pikabot will assume it
-#   is from a private message and set $target to $nick.  (This assumption may
-#   as the script evolves.
-#
-#   The input structure is something like:
-#     0) trigger caught (string)
-#     1) trigger data structure:
-#           - message => message string
-#           - nick => user who triggered the trigger
-#           - address => that user's address
-#           - target => where it's headed
-#           - server => irssi server_rec
-#             ... that's all for now
-#     2) settings data structure:
-#           - Contains a hash of MY NAMES for the settings and their
-#             full name in Irssi for everything that was registered with
-#             the SETTINGS() method.  This way stuff isn't retrieved unless
-#             it's neccessary.  In the future this may be changed so that
-#             Pikabot (or the driver) has to grab them, but for now this
-#             seems like the best approach.
-#
-#   The return structure is:
-#     0) success/fail (boolean)
-#     1+) a list of array refs with things to do, in order... the structure is
-#         something like:
-#           0) thing to do (string)
-#           1+) things that the thing needs to know (whatever they are)
-#         Supported things are:
-#           - ["send_message" => $target, $message, $type (0 == chan, 1 == nick)]
-#           - ["server_command" => $cmd_string (the '/' is not required)]
-#           - ["print" => $string, $level (optional)]
-#           - ["error" => $string, $level (optional)] (this is a wrapper for print)
-#           - ["warning" => $string, $level (optional)] (see error)
-#
-#   Special note on trigger data structure:
-#     For the time being Pikabot can only really deal with "MESSAGE PUBLIC"
-#     "MESSAGE PRIVATE" events in an effective way.  In the future I think
-#     the data structure could become a hash and Pikabot could just check
-#     for things it can modify or something... Let me give a ...BASIC... example:
-#       does target exist?
-#         YES:
-#           goto send_data
-#         NO:
-#           does nick exists?
-#             YES:
-#               set target to nick
-#               goto send_data
-#             NO:
-#               does server_rec exist?
-#                 YES:
-#                   ...
-#       label:send_data
-#       ...
 sub TRIGGERS () {
+  # TRIGGERS - required package method
+  #   Method should return one or more hash entries with trigger matching patterns
+  #   as the keys and code references for their values.  The patterns may include
+  #   one "capture" if they're intended for "ninja use"...  That is to say, if
+  #   someone private messages the bot a command that has a channel as it's first
+  #   argument then you could capture it for setting "$target".... Which would
+  #   look something like: ^\s*!(?i:huggle(?:-glomp)?(?:s|z)?)\s*((?:#|&)\S+)?
+  #   The value set to $1 will be checked first against $target, if they match
+  #   then it will be left in the string, if not it will be checked against the
+  #   trigger's channel list.  If it's found then it will be sent to that channel,
+  #   if it isn't found the user will be yelled at.  If the ninja mode is not
+  #   provided by a trigger, and $target is not set, then Pikabot will assume it
+  #   is from a private message and set $target to $nick.  (This assumption may
+  #   as the script evolves.
+  #
+  #   The input structure is something like:
+  #     0) trigger caught (string)
+  #     1) trigger data structure:
+  #           - message => message string
+  #           - nick => user who triggered the trigger
+  #           - address => that user's address
+  #           - target => where it's headed
+  #           - server => irssi server_rec
+  #             ... that's all for now
+  #     2) settings data structure:
+  #           - Contains a hash of MY NAMES for the settings and their
+  #             full name in Irssi for everything that was registered with
+  #             the SETTINGS() method.  This way stuff isn't retrieved unless
+  #             it's neccessary.  In the future this may be changed so that
+  #             Pikabot (or the driver) has to grab them, but for now this
+  #             seems like the best approach.
+  #
+  #   The return structure is:
+  #     0) success/fail (boolean)
+  #     1+) a list of array refs with things to do, in order... the structure is
+  #         something like:
+  #           0) thing to do (string)
+  #           1+) things that the thing needs to know (whatever they are)
+  #         Supported things are:
+  #           - ["send_message" => $target, $message, $type (0 == chan, 1 == nick)]
+  #           - ["server_command" => $cmd_string (the '/' is not required)]
+  #           - ["print" => $string, $level (optional)]
+  #           - ["error" => $string, $level (optional)] (this is a wrapper for print)
+  #           - ["warning" => $string, $level (optional)] (see error)
+  #
+  #   Special note on trigger data structure:
+  #     For the time being Pikabot can only really deal with "MESSAGE PUBLIC"
+  #     "MESSAGE PRIVATE" events in an effective way.  In the future I think
+  #     the data structure could become a hash and Pikabot could just check
+  #     for things it can modify or something... Let me give a ...BASIC... example:
+  #       does target exist?
+  #         YES:
+  #           goto send_data
+  #         NO:
+  #           does nick exists?
+  #             YES:
+  #               set target to nick
+  #               goto send_data
+  #             NO:
+  #               does server_rec exist?
+  #                 YES:
+  #                   ...
+  #       label:send_data
+  #       ...
+
   '^\s*!(?i:deref(?:erence)?)' => sub {
     my ($trigger, $data, $setting) = @_;
     my $type = 0;
@@ -241,7 +209,6 @@ sub TRIGGERS () {
 }
 
 
-# My stuff.
 #sub whatever ($) {
 #  do crap;
 #}

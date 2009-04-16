@@ -31,7 +31,35 @@
 use strict;
 use warnings;
 
-use Irssi;
+BEGIN { # globals, edit as needed
+  sub MODULES_LIB     () { '../modules/next-gen' }
+  sub CMPNNTS_LIB     () { './components' }
+  sub BOT_NAME        () { 'Cuteb0t' }
+  sub BOT_DESC        () { 'The cutest b0t you\'ve ever seen.' }
+  sub BOT_AUTH        () { 'Justin Lee, Tristan Willy, Andreas Högström' }
+  sub BOT_CONT        () { 'kool.name, tristan.willy, superjojo at gmail.com' }
+  sub BOT_VERS        () { 0.01 }
+}
+
+use lib MODULES_LIB;
+use lib CMPNNTS_LIB;
+
 use Pikabot;
 
-use lib './components'; # this is the new method for including components
+use Irssi;
+
+our(%IRSSI, $VERSION);
+
+$VERSION = BOT_VERS;
+%IRSSI = (
+  'authors'     => BOT_AUTH,
+  'contact'     => BOT_CONT,
+  'name'        => BOT_NAME,
+  'description' => BOT_DESC,
+);
+
+
+my $bot = Pikabot->spawn(
+  %IRSSI,
+  'version' => $VERSION, # why it's not in there already, I don't know
+);

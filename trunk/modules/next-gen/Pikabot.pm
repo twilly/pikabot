@@ -20,21 +20,27 @@ package Pikabot;
 ###
 # To do:
 #
+#   2009-04-16:
+#     - Add checks to "spawn" method.
 #   2009-04-14:
 #     - Add checks to "ike" method.
 #   2009-04-11:
 #     - Replace spawn checks/config with call to $main::VERSION and
 #       %main::IRSSI?  Problems might occur if this module is nested...
 #   2009-04-07:
-#     - Simplify configuration a little (E.G: For global channels, allow
-#       scalar values to be pushed onto the stack.)
-#     - (DROP) possibly move the inclusion of Text::ParseWords out to compile
+#     - (DROP 2009-04-16) Simplify configuration a little (E.G: For global channels,
+#       allow scalar values to be pushed onto the stack.)
+#     - (DROP 2009-04-16) possibly move the inclusion of Text::ParseWords out to compile
 #       time
 #   2009-04-06:
 #     - (DONE) fix evil hax in config method
 ###
 # History:
 #
+#   2009-04-16:
+#     - I added a new assumption to code under, it boils down to: "This
+#       module will not be nested.  All calls to AUTOLOAD will be from
+#       either this module (__PACKAGE__) or it's parent ('main')."
 #   2009-04-14:
 #     - coded "ike" method, it needs checks to make sure that there
 #       are some triggers loaded
@@ -64,61 +70,87 @@ package Pikabot;
 use strict;
 use warnings;
 
-# Random globals:
-sub MODULE_REGEX () { '\.(?i:pm)$' }
-sub BOT_REVISION () { 'r91' }
-sub SETTING_TYPE () { qw(str int bool time level size) }
-sub SETTING_BASE () { 'Irssi::settings_add_' }
-
 use Carp;
 use Text::ParseWords; # I have to admit, quotewords() is useful.
-
 use Pikabot::Trigger;
-use Pikabot::Reports;
+use Pikabot::Channel;
+use Pikabot::Setting;
+use Pikabot::Signal;
+use Pikabot::Global;
 
-my $report;
+sub AUTOLOAD {
+  # Some notes on this routine:
+  #   1) It's a bit of a hack.
+  #   2) It's very inflexible.
+  #   3) It'll do for now. :)
 
-BEGIN {
-  $report = Pikabot::Reports->spawn(__PACKAGE__) or do {
+  # First let's make sure this is a signal routine.
+  ($AUTOLOAD =~ /@{[ Pikabot::Global::SIGNAL_REGEX ]}/o and
+    defined($1)) and do {
 
-    die __PACKAGE__ . ': Error spawning reporting object';
+    eval '@_ = Pikabot::Signal::' . $1 . '(@_);'; # eval hax... erm evil
+
+    # Was there an error?
+    $@ and do {
+
+      # Was it a stupid one?
+      $@ =~ /undef.*sub/io and do {
+
+        croak "Undefined subroutine &Pikabot::Signal::$1 called";
+      };
+
+      # Was it a serious one?
+      croak $@;
+    };
+
+    # No errors, let's return what we found.
+    return (@_);
   };
 
-#  require Irssi; # don't import anything
+  # Dumb error.
+  croak "Undefined subroutine &$AUTOLOAD called";
 }
+
+our (@ISA, @EXPORT);
+my $REPORT;
+
+BEGIN {
+  require Exporter;
+  @ISA = qw(Exporter);
+  @EXPORT = qw(AUTOLOAD);
+
+  require Pikabot::Report; # import nothing
+  $REPORT = Pikabot::Report->spawn or do {
+
+    warn, croak __PACKAGE__ . ': Unable to spawn report module';
+  };
+}
+
 
 sub spawn {
   my $class = shift;
-  my ($name, $version, $authors) = @_;
+  my %pika = @_;
 
-  (defined($name) and
-    not ref($name) and
-      length($name)) or do {
+  # Check the config.
+  foreach my $k ( 'authors',
+                  'description',
+                  'name',
+                  'contact',
+                  'url',
+                  'version') {
 
-    warn, croak $report->error(1, 'Missing valid bot name');
-  };
-  (ref($authors) eq 'HASH' and
-    keys(%{$authors}) > 0) or do {
+    exists($pika{$k}) or do {
 
-    warn, croak $report->error(1, 'Missing valid authors hash');
-  };
-  (defined($version) and
-    not ref($version) and
-      length($version)) or do {
-
-    warn, croak $report->error(1, 'Missing valid version string');
-  };
-
+      warn, croak $REPORT->error(1, "Config missing field: $k");
+    };
+  }
 
   my $pika = [
-    $name,
-    $version,
-    $authors,
+    { %pika },
     Pikabot::Trigger->spawn,
-    # more stuff here
-    0,
+    Pikabot::Channel->spawn,
+    Pikabot::Setting->spawn,
   ];
-
 
   return (bless $pika, $class);
 }
@@ -127,15 +159,15 @@ sub load {
   my $pika = shift;
 
   ref($pika) eq __PACKAGE__ or
-    warn, confess $report->error(0);
+    warn, confess $REPORT->error(0);
 
 
   foreach my $component (@_) {
-    my $symbol = _require($component);
+    my ($symbol, $filename) = _require($component);
 
     defined($symbol) or do {
 
-      warn, croak $report->error(4, 'Overloading not enabled');
+      warn, croak $REPORT->error(4, 'Overloading not enabled');
     };
 
 
@@ -145,123 +177,26 @@ sub load {
 
     $@ and do {
 
-      warn, croak $report->error(4, "Unable to BOOT $component: $@");
+      warn, croak $REPORT->error(5, "$component boot failure: $@");
     };
 
 
-    my %setting = $symbol->SETTINGS;
-#    my @signal = $symbol->SIGNALS; # reserved for future use
-    my %trigger = $symbol->TRIGGERS;
-    my $name = lc($symbol);
-    my $heyo = lc(ref($pika));
-
-    $name =~ s/(?:\:\:|\s+)/_/go;
-    $name =~ s/component//igo;
-    $name =~ s/_+/_/go;
-    $heyo =~ s/(?:\:\:|\s+)/_/go;
-    $heyo =~ s/_+/_/go;
 
 
-    # Parse the settings.
-    foreach my $i (keys(%setting)) {
-      _exists_setting($setting{$i}->[0]) or do {
 
-        warn, croak $report->error(5, 'Unknown setting type "' . $setting{$i}->[0] . "\" for $i");
-      };
-
-      my $key = "${name}_${i}";
-      my $add = SETTING_BASE . $setting{$i}->[0] . "($heyo, $key, " . $setting{$i}->[1] . ');';
-
-      eval $add;
-
-      $@ and do {
-
-        warn, croak $report->error(5, "Unable to add setting $key: $@");
-      };
-
-
-      $setting{$i} = $key;
-    }
-
-    # Load the trigger!
-    foreach my $t (keys(%trigger)) {
-      $pika->[3]->register($t => [$trigger{$t}, [ $symbol->CHANNELS ], [ keys(%setting) ]]) or do {
-
-        warn, croak $report->error(5);
-      };
-    }
-  }
-
-  return (scalar $pika->[3]->triggers);
-}
-
-sub name {
-  my $pika = shift;
-
-  ref($pika) eq __PACKAGE__ or
-    warn, confess $report->error(0);
-
-
-  return ($pika->[0]);
-}
-
-sub version {
-  my $pika = shift;
-
-  ref($pika) eq __PACKAGE__ or
-    warn, confess $report->error(0);
-
-
-  return ($pika->[1]);
-}
-
-sub authors {
-  my $pika = shift;
-
-  ref($pika) eq __PACKAGE__ or
-    warn, confess $report->error(0);
-
-
-  my ($author) = @_;
-
-  not defined($author) and do {
-
-    return (keys(%{$pika->[2]}));
-  };
-  exists($pika->[2]->{$author}) and do {
-
-    return ($pika->[2]->{$author});
-  };
-
-
-  warn, croak $report->error(2);
-}
-
-sub ike {
-  my $pika = shift;
-
-  ref($pika) eq __PACKAGE__ or
-    warn, confess $report->error(0);
-
-
-  $pika->[-1] and do {
-
-    warn, croak $report->error(6);
-  };
-
-  $pika->[-1] = not $pika->[-1];
-}
-
-
-# My stuff~!
 sub _require ($) {
+  # This is basically a slightly hacked verion of
+  # perl's own require method.  I say "slightly"
+  # because only what is returned is modified, the
+  # rest is pretty much the same! :D
+
   my ($file) = @_;
 
   exists($INC{$file}) and do {
 
     $INC{$file} or do {
 
-      warn, croak $report->error(5, 'Compilation failed at %INC check');
+      warn, croak $REPORT->error(5, 'Compilation failed at %INC check');
     };
 
     return (undef);
@@ -281,33 +216,67 @@ sub _require ($) {
     $@ and do {
 
       $INC{$file} = undef;
-      warn, croak $report->error(5, "$@");
+      warn, croak $REPORT->error(5, $@);
     };
     (defined($package) and
-      length($package)) or do {
+      length($package) and
+        $package) or do {
 
       delete($INC{$file});
-      warn, croak $report->error(5, "$file did not return a true value");
+      warn, croak $REPORT->error(5, "$file did not return a true value");
     };
 
 
-    return ($package);
+    return ($package, $file);
   }
 
-  warn, croak $report->error(5, "Can't find $file in \@INC");
+  warn, croak $REPORT->error(5, "Can't find $file in \@INC");
 }
 
 sub _exists_setting ($) {
+  # In scalar context returns the number of matches (if
+  # that number is higher than one, you have a problem
+  # with your globals)... In list context returns what
+  # matched.
+
   my ($given) = @_;
 
-  foreach my $type (SETTING_TYPE) {
-    $given eq $type and do {
+  return (grep { $type eq $_ } Pikabot::Global::SETTING_TYPE);
+}
 
-      return (1);
-    };
-  }
+sub _check_component_symbol ($) {
+  # This just makes sure the user has built his or
+  # her Pikabot components correctly.
 
-  return (0);
+  my ($given) = @_;
+
+  ($given =~ /@{[ Pikabot::Global::CMPNNT_REGEX ]}/o and
+    defined($1)) and do {
+
+    return ($1);
+  };
+
+  return (undef);
+}
+
+sub _symbol_to_setting ($$) {
+  # Quick little hack to turn a symbol and a
+  # setting into a setting string that Irssi
+  # will not mind.
+
+  my ($sym, $set) = @_;
+
+  (defined($sym) and
+    defined($set)) or do {
+
+    return (undef);
+  };
+
+
+  $sym =~ s/[^A-Za-z0-9]/_/go;
+  $sym =~ s/_+/_/go;
+
+  return (lc("${sym}_${set}"));
 }
 
 
