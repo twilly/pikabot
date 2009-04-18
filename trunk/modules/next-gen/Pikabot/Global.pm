@@ -28,6 +28,11 @@ package Pikabot::Global;
 ###
 # History:
 #
+#   2009-04-18:
+#     - Dropped "BOT_REVISION", "CONFIG_REGEX" and "MODULE_REGEX" as they
+#       are all now handled by the driver.
+#     - List was getting a bit big, so I changed the layout to be more
+#       intuitive.
 #   2009-04-16:
 #     - Switched to SelfLoader.  Since these subs are really small, their
 #       on-the-fly compile time will be next to nothing.
@@ -44,9 +49,32 @@ __PACKAGE__;
 
 __DATA__
 
-sub MODULE_REGEX () { '\.(?i:pm)$' }
-sub BOT_REVISION () { 'r91' }
-sub SETTING_TYPE () { qw(str int bool time level size) }
-sub SETTING_BASE () { 'Irssi::settings_add_' }
-sub CMPNNT_REGEX () { '^Pikabot\:\:Component\:\:(\S+)$' }
-sub SIGNAL_REGEX () { '^main\:\:signal_(\S+)$' }
+sub SETTING_TYPE ()
+	{ qw(str int bool time level size) }
+
+sub SETTING_BASE ()
+	{ 'Irssi::settings_add_' }
+
+sub CMPNNT_REGEX ()
+	{ '^Pikabot\:\:Component\:\:(\S+)$' }
+
+sub SIGNAL_REGEX ()
+	{ '^(?:main|Pikabot)\:\:signal_(\S+)$' }
+
+sub CONFIG_FIELD ()
+	{ qw(name url description authors contact version) }
+
+sub BOT_VAR_NAME ()
+	{ 'BOT' }
+
+sub CMPNNT_METHS ()
+	{ qw(BOOT TRIGGERS) }
+
+sub CONFG_LAYOUT ()
+	{ { 'silent' => 0, 'setting' => {}, 'active' => { 'channel' => {}, 'network' => {} }, 'trigger' => {} } }
+
+sub PERLINT_NAME ()
+	{ 'Perl Commandline Interpreter' }
+
+sub REPORT_LEVEL ()
+	{ '', qw(WARNING ERROR), 'SCARY ERROR' }

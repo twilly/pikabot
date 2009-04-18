@@ -20,13 +20,28 @@ package Pikabot;
 ###
 # To do:
 #
+#   2009-04-18:
+#     - Implement a method for storing entire bot to file (based
+#       on methods provided by "Storable") so that the bot does not
+#       need to be completely recompiled inbetween sessions.  This
+#       would allow the driver to catch the quit or exit signal,
+#       "flash" the bot to the drive (I love the word flash) then
+#       continue with the quit/exit.  This could be done completely
+#       by the driver, but would be a cool feature to include. :)
+#     - (DONE 2009-04-18) Clean up the "_require" method, mainly the error messages.
+#     - Think up a better way to use Pikabot::Report with Carp.
 #   2009-04-16:
-#     - Add checks to "spawn" method.
+#     - (ACTIVE 2009-04-18) Along with "active channel" support, add "active network"
+#       and "active server" etc
+#     - (ACTIVE 2009-04-18) For configuring the bot, we could have Pikabot check
+#       %main::IRSSI for settings, but that would sorta kill the
+#       object-ness of it, maybe have it fall back to checking that?
+#     - (DONE 2009-04-17) Add checks to "spawn" method.
 #   2009-04-14:
 #     - Add checks to "ike" method.
 #   2009-04-11:
-#     - Replace spawn checks/config with call to $main::VERSION and
-#       %main::IRSSI?  Problems might occur if this module is nested...
+#     - (MOVED 2009-04-16) Replace spawn checks/config with call to $main::VERSION
+#       and %main::IRSSI?  Problems might occur if this module is nested...
 #   2009-04-07:
 #     - (DROP 2009-04-16) Simplify configuration a little (E.G: For global channels,
 #       allow scalar values to be pushed onto the stack.)
@@ -37,6 +52,12 @@ package Pikabot;
 ###
 # History:
 #
+#   2009-04-18:
+#     - Imported "Storable" module for component configuration.
+#     - Dropped "Pikabot::Trigger", "Pikabot::Channel" and "Pikabot::Setting".
+#     - Expanded on the assumption from 2009-04-16, "This bot is a weird
+#       hybrid of oo and not."  SO, now I'm going to pry right into %main::
+#       and look for what I need. :)  Heeeere's Johnny!
 #   2009-04-16:
 #     - I added a new assumption to code under, it boils down to: "This
 #       module will not be nested.  All calls to AUTOLOAD will be from
@@ -71,212 +92,365 @@ use strict;
 use warnings;
 
 use Carp;
+use Storable;
 use Text::ParseWords; # I have to admit, quotewords() is useful.
-use Pikabot::Trigger;
-use Pikabot::Channel;
-use Pikabot::Setting;
 use Pikabot::Signal;
 use Pikabot::Global;
+use Pikabot::Report qw(error);
 
 sub AUTOLOAD {
-  # Some notes on this routine:
-  #   1) It's a bit of a hack.
-  #   2) It's very inflexible.
-  #   3) It'll do for now. :)
+	# Some notes on this routine:
+	#   1) It's a bit of a hack.
+	#   2) It's very inflexible.
+	#   3) It'll do for now. :)
 
-  # First let's make sure this is a signal routine.
-  ($AUTOLOAD =~ /@{[ Pikabot::Global::SIGNAL_REGEX ]}/o and
-    defined($1)) and do {
+	# First let's make sure this is a signal routine.
+	($AUTOLOAD =~ /@{[ Pikabot::Global::SIGNAL_REGEX ]}/o and
+		defined($1)) and do {
 
-    eval '@_ = Pikabot::Signal::' . $1 . '(@_);'; # eval hax... erm evil
+		eval '@_ = Pikabot::Signal::' . $1 . '(@_);'; # eval hax... erm evil
 
-    # Was there an error?
-    $@ and do {
+		# Was there an error?
+		$@ and do {
 
-      # Was it a stupid one?
-      $@ =~ /undef.*sub/io and do {
+			# Was it a stupid one?
+			$@ =~ /undef.*sub/io and do {
 
-        croak "Undefined subroutine &Pikabot::Signal::$1 called";
-      };
+				croak "Undefined subroutine &Pikabot::Signal::$1 called";
+			};
 
-      # Was it a serious one?
-      croak $@;
-    };
+			# Was it a serious one?
+			croak $@;
+		};
 
-    # No errors, let's return what we found.
-    return (@_);
-  };
+		# No errors, let's return what we found.
+		return (@_);
+	};
 
-  # Dumb error.
-  croak "Undefined subroutine &$AUTOLOAD called";
+	# Dumb error.
+	croak "Undefined subroutine &$AUTOLOAD called";
 }
 
 our (@ISA, @EXPORT);
-my $REPORT;
+my ($PIKA);
 
 BEGIN {
-  require Exporter;
-  @ISA = qw(Exporter);
-  @EXPORT = qw(AUTOLOAD);
-
-  require Pikabot::Report; # import nothing
-  $REPORT = Pikabot::Report->spawn or do {
-
-    warn, croak __PACKAGE__ . ': Unable to spawn report module';
-  };
+	require Exporter;
+	@ISA = qw(Exporter);
+	@EXPORT = qw(AUTOLOAD);
 }
 
 
-sub spawn {
-  my $class = shift;
-  my %pika = @_;
+# External methods and the like.
 
-  # Check the config.
-  foreach my $k ( 'authors',
-                  'description',
-                  'name',
-                  'contact',
-                  'url',
-                  'version') {
+sub spawn () {
+	my $class = shift;
 
-    exists($pika{$k}) or do {
+	defined($PIKA) and do {
 
-      warn, croak $REPORT->error(1, "Config missing field: $k");
-    };
-  }
+		carp error(1, 1, 'The bot is already spawned');
+		return (undef);
+	}:
 
-  my $pika = [
-    { %pika },
-    Pikabot::Trigger->spawn,
-    Pikabot::Channel->spawn,
-    Pikabot::Setting->spawn,
-  ];
+	exists($main::{Pikabot::Global::BOT_VAR_NAME}) or do {
 
-  return (bless $pika, $class);
+		croak error(2, 1, 'Missing variable %' . Pikabot::Global::BOT_VAR_NAME);
+	};
+
+
+	# $PIKA get's whatever BOT_VAR_NAME is set to from main....
+	$PIKA = $main::{Pikabot::Global::BOT_VAR_NAME};
+
+	eval {
+		foreach my $k (Pikabot::Global::CONFIG_FIELD) {
+			exists($PIKA->{$k}) or do {
+
+				die "missing key $k";
+			};
+			defined($PIKA->{$k}) or do {
+
+				die "undefined key $k";
+			};
+		}
+	};
+
+	$@ and do {
+
+		$@ =~ /(missing|undefined) key (\w+)/o and do {
+
+			croak error(2, 1, "\u$1 key '$2'");
+		};
+
+		confess $@;
+	};
+
+	exists($PIKA->{'autoconfig'}) and do {
+
+		-d $PIKA->{'autoconfig'} or do {
+
+			croak error(2, 1, 'Invalid autoconfig directory given');
+		};
+
+		THING: {
+			foreach my $path (@INC) {
+				$PIKA->{'autoconfig'} eq $path and do {
+
+					last THING;
+				};
+			}
+
+			croak error(2, 1, 'Given autoconfig path MUST be in @INC');
+		}
+	};
+
+	# .... Then we make it our bitch.
+	$PIKA->{'tree'} = {};
+
+	return (1);
 }
 
-sub load {
-  my $pika = shift;
+sub load (@) {
+	my $class = shift;
 
-  ref($pika) eq __PACKAGE__ or
-    warn, confess $REPORT->error(0);
+	defined($PIKA) or do {
 
-
-  foreach my $component (@_) {
-    my ($symbol, $filename) = _require($component);
-
-    defined($symbol) or do {
-
-      warn, croak $REPORT->error(4, 'Overloading not enabled');
-    };
+		croak error(2, 6, 'The bot must be spawned first');
+	};
 
 
-    eval {
-      $symbol->BOOT;
-    };
+	foreach my $c (@_) {
+		(ref($c) eq 'HASH' and
+			exists($c->{'file'}) and
+				exists($c->{'conf'})) or do {
 
-    $@ and do {
-
-      warn, croak $REPORT->error(5, "$component boot failure: $@");
-    };
-
+			croak error(2, 5, 'Invalid info hash');
+		};
 
 
+		my ($symbol) = _require($c->{'file'});
+
+		defined($symbol) or do {
+
+			_forget($c->{'file'});
+			croak error(2, 5, "Overloading not supported: '$file'");
+		};
 
 
-sub _require ($) {
-  # This is basically a slightly hacked verion of
-  # perl's own require method.  I say "slightly"
-  # because only what is returned is modified, the
-  # rest is pretty much the same! :D
+		my ($name) = _check_component_symbol($symbol);
 
-  my ($file) = @_;
+		defined($name) or do {
 
-  exists($INC{$file}) and do {
-
-    $INC{$file} or do {
-
-      warn, croak $REPORT->error(5, 'Compilation failed at %INC check');
-    };
-
-    return (undef);
-  };
-
-  foreach my $path (@INC) {
-    my $fullfile = "$path/$file";
-
-    -f $fullfile or do {
-
-      next;
-    };
-
-    $INC{$file} = $fullfile;
-    my $package = do $fullfile;
-
-    $@ and do {
-
-      $INC{$file} = undef;
-      warn, croak $REPORT->error(5, $@);
-    };
-    (defined($package) and
-      length($package) and
-        $package) or do {
-
-      delete($INC{$file});
-      warn, croak $REPORT->error(5, "$file did not return a true value");
-    };
+			_forget($c->{'file'});
+			croak error(2, 5, 'Invalid package name, must match: ' . Pikabot::Global::CMPNNT_REGEX);
+		};
 
 
-    return ($package, $file);
-  }
+		exists($PIKA->{'autoconfig'}) and do {
 
-  warn, croak $REPORT->error(5, "Can't find $file in \@INC");
+			my $cf = join('/', $PIKA->{'autoconfig'}, $c->{'conf'});
+
+			-f $cf or do {
+
+				store(Pikabot::Global::CONFG_LAYOUT, $cf) or do {
+
+					_forget($c->{'file'});
+					croak error(1, 8, $! or '');
+				};
+			};
+		};
+
+
+		eval {
+			$symbol->BOOT or do {
+
+				die 'boot failure';
+			};
+
+			$PIKA->{'tree'}->{$name} = {
+				'routine'		=> {
+					$symbol->HASH,
+				},
+				'config'		=> retrieve(_lookup($c->{'conf'})),
+				'location'	=> {
+					'file'	=> $c->{'file'},
+					'conf'	=> $c->{'conf'},
+				},
+			};
+
+			keys(%{$PIKA->{'tree'}->{$name}->{'routine'}}) > 0 or do {
+
+				die 'no routines found';
+			};
+		};
+
+		$@ and do {
+
+			$@ =~ /(boot failure|no routines found)/io and do {
+
+				_forget($c->{'file'});
+				croak error(2, 5, "\u$1");
+			};
+
+			confess $@;
+		};
+
+
+
+
+
+
+
+# Internal methods, and the like.
+
+sub _require ($;$) {
+	# This is basically a slightly hacked verion of
+	# perl's own require method.  I say "slightly"
+	# because only what is returned is modified, the
+	# rest is pretty much the same! :D
+	# One additional modification is overloading, it's
+	# not 100% ready for use, but it's getting there.
+
+	my ($file, $overload) = @_;
+
+	exists($INC{$file}) and do {
+
+			$INC{$file} or do {
+
+			croak 'Compilation failed at %INC check';
+		};
+
+		(defined($overload) and
+			$overload) or do {
+
+			return (undef);
+		};
+	};
+
+	foreach my $path (@INC) {
+		my $fullfile = "$path/$file";
+
+		-f $fullfile or do {
+
+			next;
+		};
+
+		$INC{$file} = $fullfile;
+		my $package = do $fullfile;
+
+		$@ and do {
+
+			$INC{$file} = undef;
+
+			croak $@;
+		};
+
+		(defined($package) and
+			length($package) and
+				$package) or do {
+
+			delete($INC{$file});
+
+			croak "$file did not return a true value";
+		};
+
+
+		return ($package);
+	}
+
+	croak "Can't find $file in \@INC";
+}
+
+sub _lookup ($) {
+	# This is basically a hacked verion of perl's own
+	# require method.  All it does is look for a file
+	# in @INC and, if found, returns the full path.
+
+	my ($file) = @_;
+
+	foreach my $path (@INC) {
+		my $fullfile = "$path/$file";
+
+		-f $fullfile or do {
+
+			next;
+		};
+
+		-r $fullfile or do {
+
+			carp "Unable to read $fullfile: $!";
+			next;
+		};
+
+		return ($fullfile);
+	}
+
+	croak "Can't find $file in \@INC";
+}
+
+sub _forget ($;$) {
+	# Essentially a cheap "unrequire" routine.
+
+	my ($file, $do) = @_;
+
+	exists($INC{$file}) or do {
+
+		croak "Unable to find $file in \%INC";
+	};
+
+
+	if (defined($do) and $do) {
+		delete($INC{$file});
+	} else {
+		$INC{$file} = undef;
+	}
+
+	return (1);
 }
 
 sub _exists_setting ($) {
-  # In scalar context returns the number of matches (if
-  # that number is higher than one, you have a problem
-  # with your globals)... In list context returns what
-  # matched.
+	# In scalar context returns the number of matches (if
+	# that number is higher than one, you have a problem
+	# with your globals)... In list context returns what
+	# matched.
 
-  my ($given) = @_;
+	my ($given) = @_;
 
-  return (grep { $type eq $_ } Pikabot::Global::SETTING_TYPE);
+	return (grep { $given eq $_ } Pikabot::Global::SETTING_TYPE);
 }
 
 sub _check_component_symbol ($) {
-  # This just makes sure the user has built his or
-  # her Pikabot components correctly.
+	# This just makes sure the user has built his or
+	# her Pikabot components correctly.
 
-  my ($given) = @_;
+	my ($given) = @_;
 
-  ($given =~ /@{[ Pikabot::Global::CMPNNT_REGEX ]}/o and
-    defined($1)) and do {
+	($given =~ /@{[ Pikabot::Global::CMPNNT_REGEX ]}/o and
+		defined($1)) and do {
 
-    return ($1);
-  };
+		return ($1);
+	};
 
-  return (undef);
+	return (undef);
 }
 
 sub _symbol_to_setting ($$) {
-  # Quick little hack to turn a symbol and a
-  # setting into a setting string that Irssi
-  # will not mind.
+	# Quick little hack to turn a symbol and a
+	# setting into a setting string that Irssi
+	# will not mind.
 
-  my ($sym, $set) = @_;
+	my ($sym, $set) = @_;
 
-  (defined($sym) and
-    defined($set)) or do {
+	(defined($sym) and
+		defined($set)) or do {
 
-    return (undef);
-  };
+		return (undef);
+	};
 
 
-  $sym =~ s/[^A-Za-z0-9]/_/go;
-  $sym =~ s/_+/_/go;
+	$sym =~ s/[^A-Za-z0-9]/_/go;
+	$sym =~ s/_+/_/go;
 
-  return (lc("${sym}_${set}"));
+	return (lc("${sym}_${set}"));
 }
 
 
