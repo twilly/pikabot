@@ -20,16 +20,23 @@ package Pikabot::Report;
 ###
 # To do:
 #
+#   2009-04-18:
+#     - develop better method for returning error string
 #   2009-04-16:
-#     - possibly remove Exporter completely, probably don't need it
+#     - (DROP 2009-04-18) possibly remove Exporter completely, probably don't need it
 #   2009-04-07:
-#     - Use "caller()" somehow for the ERRSTR/ERROR function?
+#     - (DONE 2009-04-18) Use "caller()" somehow for the ERRSTR/ERROR
+#       function?
 #   2009-04-06:
 #     - (DROP) boil the list of messages down some
 #     - (DONE) fix exporter bug
 ###
 # History:
 #
+#   2009-04-18:
+#     - further implmented "caller" and moved away from
+#       object oriented
+#     - fixed bug in the "error" method
 #   2009-04-16:
 #     - fixed the busted Exporter usage
 #   2009-04-14:
@@ -47,78 +54,110 @@ package Pikabot::Report;
 use strict;
 use warnings;
 
+use Pikabot::Global;
+
 our (@ISA, @EXPORT_OK);
 
 BEGIN {
-  require Exporter;
-  @ISA = qw(Exporter);
-  @EXPORT_OK = qw(_error_string);
+	require Exporter;
+	@ISA = qw(Exporter);
+	@EXPORT_OK = qw(error);
 }
 
 
-# my stuff
+# Internal methods and the like.
+
 sub _error_string ($) {
-  # This method will decimate IO... But since it's only called
-  # to die I don't see a problem. :P  Maybe it would be smarter
-  # to make an array of refs to subs outside the __DATA__ token
-  # and use SelfLoader?  Or simply pull an acme and parse __DATA__
-  # where it contains one error message per line, just set (or
-  # run through $. [line number]) to the one we want, and read it.
-  # But for now, I'm lazy and this will do.
-  return [
-    'Invalid object', #0
-    'Unable to spawn', #1
-    'Unknown author', #2
-    'Unable to unregister', #3
-    'Unable to register', #4
-    'Unable to load component', #5
-    'You can\'t init the bot twice', #6
-    'Error fetching signal call', #7
+	# This method will decimate IO... But since it's only called
+	# to die I don't see a problem. :P  Maybe it would be smarter
+	# to make an array of refs to subs outside the __DATA__ token
+	# and use SelfLoader?  Or simply pull an acme and parse __DATA__
+	# where it contains one error message per line, just set (or
+	# run through $. [line number]) to the one we want, and read it.
+	# But for now, I'm lazy and this will do.
 
-  ]->[int(abs(shift))]; # I don't even trust myself.
+	return [
+		'Invalid object', #0
+		'Unable to spawn', #1
+		'Unknown author', #2
+		'Unable to unregister', #3
+		'Unable to register', #4
+		'Unable to load component', #5
+		'Unable to call load method', #6
+		'Error fetching signal call', #7
+		'Unable to spawn config', #8
+
+	]->[int(abs(shift))]; # I don't even trust myself.
 }
 
-# methods
-sub spawn {
-  my $class = shift;
+sub _get_level ($) {
+	my ($level) = @_;
+	my $string = [Pikabot::Global::REPORT_LEVEL]->[$level];
 
+	(defined($string) and
+		length($string)) or do {
 
-  my ($package) = @_;
+		return ('');
+	};
 
-  defined($package) or do {
-
-    $package = caller;
-  };
-
-
-  return (bless \$package, $class);
+	return ("$string: ");
 }
 
-sub error {
-  my $pika = shift;
+sub _rename_e ($) {
+	my ($file) = @_;
 
-  ref($pika) eq __PACKAGE__ or
-    warn, return (__PACKAGE__ . ': Invalid object calling ERROR method');
+	$file eq '-e' and do {
 
+		-f $file and do {
 
-  my ($error, $message) = @_;
+			return ($file); # allows for files named -e
+		};
 
-  length(_error_string($error)) or do {
+		return (Pikabot::Global::PERLINT_NAME);
+	};
 
-    warn, return (__PACKAGE__ . ': Specified error string does not exist');
-  };
-  (defined($message) and
-    length($message)) or do {
-
-    $message = '';
-  };
-  length($message) and do {
-
-    $message = ": $message";
-  };
+	return (undef); # uh-oh
+}
 
 
-  return ("${$pika}: " . _error_string($error) . $message);
+# External methods and the like.
+
+sub error ($$;$) {
+	my ($l, $e, $message) = @_;
+	my $error = _error_string($e);
+	my $level = _get_level($l);
+
+	defined($error) or do {
+
+		confess 'ERROR: ' . __PACKAGE__ . ": Specified error string, '$i', does not exist";
+	};
+	defined($message) or do {
+
+		$message = '';
+	};
+	length($message) and do {
+
+		$error .= ": $message";
+	};
+
+
+	my ($package, $file, $line, $subroutine, $hasargs, $wantarray, $evaltext, $is_require, $hints, $bitmask, $hinthash) = caller(1);
+
+	my $filename = _rename_e($file);
+
+	defined($filename) or do {
+
+		confess 'SCARY ERROR: ' . __PACKAGE__ . ": Could not find $file, don't you be deleting my files";
+	};
+	defined($subroutine) or do {
+
+		return ("${level}${package}: ${error} (${filename}\@${line})... ");
+	};
+	$subroutine eq '(eval)' and do {
+		# Will code when needed.
+	};
+
+	return ("${level}${package}::${subroutine}: ${error} (${filename}\@${line})... ");
 }
 
 

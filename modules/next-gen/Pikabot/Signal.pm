@@ -33,6 +33,7 @@ use strict;
 use warnings;
 
 use SelfLoader;
+use Pikabot::Global;
 
 
 __PACKAGE__;
