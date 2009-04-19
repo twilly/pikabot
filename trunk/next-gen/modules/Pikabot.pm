@@ -92,7 +92,7 @@ use strict;
 use warnings;
 
 use Carp;
-use Storable;
+use Storable qw(lock_store lock_retrieve);
 use Text::ParseWords; # I have to admit, quotewords() is useful.
 use Pikabot::Signal;
 use Pikabot::Global;
@@ -105,7 +105,7 @@ sub AUTOLOAD {
   #   3) It'll do for now. :)
 
   # First let's make sure this is a signal routine.
-  ($AUTOLOAD =~ /@{[ Pikabot::Global::SIGNAL_REGEX ]}/o and
+  ($AUTOLOAD =~ /@{[ Pikabot::Global->SIGNAL_REGEX ]}/o and
     defined($1)) and do {
 
     eval '@_ = Pikabot::Signal::' . $1 . '(@_);'; # eval hax... erm evil
@@ -144,25 +144,37 @@ BEGIN {
 # External methods and the like.
 
 sub spawn () {
+  # This starts up the module, at the moment it
+  # uses dirty tricks and funtimes to go about
+  # that process....
+
   my $class = shift;
 
+  # Check if the bot is already spawned.
   defined($PIKA) and do {
 
-    carp error(1, 1, 'The bot is already spawned');
+    carp error(1, 1);
     return (undef);
-  }:
+  };
+  # Check if the required symbol exists.
+  exists($main::{Pikabot::Global->BOT_VAR_NAME}) or do {
 
-  exists($main::{Pikabot::Global::BOT_VAR_NAME}) or do {
+    croak error(1, 3);
+  };
+  # Check if the symbol contains a hash...
+  exists(%{$main::{Pikabot::Global->BOT_VAR_NAME}}) or do {
 
-    croak error(2, 1, 'Missing variable %' . Pikabot::Global::BOT_VAR_NAME);
+    croak error(1, 4);
   };
 
 
-  # $PIKA get's whatever BOT_VAR_NAME is set to from main....
-  $PIKA = $main::{Pikabot::Global::BOT_VAR_NAME};
+  # Set $PIKA to the symbol.
+  $PIKA = $main::{Pikabot::Global->BOT_VAR_NAME};
 
+
+  # Make sure their hash has what we need...
   eval {
-    foreach my $k (Pikabot::Global::CONFIG_FIELD) {
+    foreach my $k (Pikabot::Global->CONFIG_FIELD) {
       exists($PIKA->{$k}) or do {
 
         die "missing key $k";
@@ -176,21 +188,27 @@ sub spawn () {
 
   $@ and do {
 
-    $@ =~ /(missing|undefined) key (\w+)/o and do {
+    # Their hash was missing something we needed.
+    $@ =~ /(?:missing|undefined) key (\w+)/o and do {
 
-      croak error(2, 1, "\u$1 key '$2'");
+      croak error(1, 5, "\"$1\"");
     };
 
+    # Bad error.
     confess $@;
   };
 
+  # Check if we're going to auto configure.
   exists($PIKA->{'autoconfig'}) and do {
 
+    # Make sure the directory exists.
     -d $PIKA->{'autoconfig'} or do {
 
-      croak error(2, 1, 'Invalid autoconfig directory given');
+      croak error(1, 6);
     };
 
+    # Make sure that the directory is in @INC.  Big problems may
+    # occur later on if it isn't, so I'll do this check now.
     THING: {
       foreach my $path (@INC) {
         $PIKA->{'autoconfig'} eq $path and do {
@@ -199,84 +217,118 @@ sub spawn () {
         };
       }
 
-      croak error(2, 1, 'Given autoconfig path MUST be in @INC');
+      croak error(1, 7);
     }
   };
 
-  # .... Then we make it our bitch.
+
+  # Now is when things get sketchy! :D  We're going to work right
+  # in main's workspace...  For the moment this makes things easier
+  # for me.  I still think this bot could be object oriented pretty
+  # easy, but I'm limiting "practical applications" of this bot-core
+  # to one bot per driver script just because I can.  So, if I'm
+  # going as far as to say one bot per script, I'm gonna make sure
+  # that there is only one bot in that script by invading it's
+  # workspace and looking for a configuration hash, then manipulating
+  # it.  Haha...... Evil?  Yes.  Dangerous?  Probably.
   $PIKA->{'tree'} = {};
 
+  # Return something good, might as well.
   return (1);
 }
 
 sub load (@) {
   my $class = shift;
 
+  # Make sure the bot is already spawned.
   defined($PIKA) or do {
 
-    croak error(2, 6, 'The bot must be spawned first');
+    croak error(2, 8);
   };
 
 
+  # Run across the list given...
   foreach my $c (@_) {
+
+    # Make sure that the component's two files are given in a hash.
     (ref($c) eq 'HASH' and
       exists($c->{'file'}) and
         exists($c->{'conf'})) or do {
 
-      croak error(2, 5, 'Invalid info hash');
+      croak error(3, 9);
     };
 
-
+    # Import the component.
     my ($symbol) = _require($c->{'file'});
 
+    # If the component was already loaded, _require returns undef,
+    # currently overloading is not supported.
     defined($symbol) or do {
 
+      # Calling "_forget" keeps things safe.
       _forget($c->{'file'});
-      croak error(2, 5, "Overloading not supported: '$file'");
+      croak error(3, 10, $c->{'file'});
     };
 
-
+    # Grab the name from the returned value of the component.
     my ($name) = _check_component_symbol($symbol);
 
+    # The above "check" returns undef if it fails to match
+    # "Pikabot::Global->CMPNNT_REGEX" against the components returned
+    # value.
     defined($name) or do {
 
       _forget($c->{'file'});
-      croak error(2, 5, 'Invalid package name, must match: ' . Pikabot::Global::CMPNNT_REGEX);
+      croak error(3, 11);
     };
 
 
+    # If we are autoconfiguring components, then let's do it! :D
     exists($PIKA->{'autoconfig'}) and do {
 
+      # Now you may (or may not) see why we needed to make sure that
+      # the autoconfig directory was already in @INC...
       my $cf = join('/', $PIKA->{'autoconfig'}, $c->{'conf'});
 
       -f $cf or do {
 
-        store(Pikabot::Global::CONFG_LAYOUT, $cf) or do {
+        lock_store(Pikabot::Global->CONFG_LAYOUT, $cf) or do {
 
           _forget($c->{'file'});
-          croak error(1, 8, $! or '');
+          croak error(3, 12);
         };
       };
     };
 
 
+    # Now we start compiling the component.
     eval {
-      $symbol->BOOT or do {
+
+      # At the moment, I guess modules can configure
+      # themselves with the BOOT method and Storable.  They
+      # should use "lock_retrieve" and "lock_store".  This is
+      # not really the best way to go about this, but it'll
+      # do for the moment.
+      # BOOT must return a false value for failures and a
+      # not false value if there isn't any failures.
+      $symbol->BOOT(_lookup($c->{'conf'})) or do {
 
         die 'boot failure';
       };
 
+      # Here is the "layout" that will be stuck in main's
+      # workspace.
       $PIKA->{'tree'}->{$name} = {
         'routine'   => {
-          $symbol->HASH,
+          $symbol->STUFF,
         },
-        'config'    => retrieve(_lookup($c->{'conf'})),
         'location'  => {
           'file'  => $c->{'file'},
           'conf'  => $c->{'conf'},
         },
       };
 
+      # Make sure that there is some stuff to work with...
       keys(%{$PIKA->{'tree'}->{$name}->{'routine'}}) > 0 or do {
 
         die 'no routines found';
@@ -288,7 +340,7 @@ sub load (@) {
       $@ =~ /(boot failure|no routines found)/io and do {
 
         _forget($c->{'file'});
-        croak error(2, 5, "\u$1");
+        croak error(3, 13, "\u$1");
       };
 
       confess $@;
@@ -364,6 +416,9 @@ sub _lookup ($) {
   # This is basically a hacked verion of perl's own
   # require method.  All it does is look for a file
   # in @INC and, if found, returns the full path.
+  # I use it to keep non-perl stuff out of %INC, plus
+  # with this routine is not really a cycle waster, so
+  # it'll be quick anyway.
 
   my ($file) = @_;
 
@@ -415,7 +470,7 @@ sub _exists_setting ($) {
 
   my ($given) = @_;
 
-  return (grep { $given eq $_ } Pikabot::Global::SETTING_TYPE);
+  return (grep { $given eq $_ } Pikabot::Global->SETTING_TYPE);
 }
 
 sub _check_component_symbol ($) {
@@ -424,7 +479,7 @@ sub _check_component_symbol ($) {
 
   my ($given) = @_;
 
-  ($given =~ /@{[ Pikabot::Global::CMPNNT_REGEX ]}/o and
+  ($given =~ /@{[ Pikabot::Global->CMPNNT_REGEX ]}/o and
     defined($1)) and do {
 
     return ($1);
