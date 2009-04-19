@@ -20,14 +20,22 @@ package Pikabot::Global;
 ###
 # To do:
 #
+#   2009-04-19:
+#     - Could possibly add Exporter to some kind of
+#       hack that reads my (Pikabot::Globals) symbol table and builds a
+#       @EXPORT array from that.  It could be done using the END construct
+#       instead of the BEGIN construct, that way the subs could all be folded
+#       down by the optimizer and made into constants.
 #   2009-04-16:
 #     - Change SIGNAL_REGEX to be less strict.
-#     - Could possibly add Exporter to some kind of hack that
-#       reads my (Pikabot::Globals) symbol table and builds a @EXPORT
-#       array from that.
+#     - (UPDATE 2009-04-19) Could possibly add Exporter to some kind of
+#       hack that reads my (Pikabot::Globals) symbol table and builds a
+#       @EXPORT array from that.
 ###
 # History:
 #
+#   2009-04-19:
+#     - Dropped "REPORT_LEVEL", it is no longer used.
 #   2009-04-18:
 #     - Dropped "BOT_REVISION", "CONFIG_REGEX" and "MODULE_REGEX" as they
 #       are all now handled by the driver.
@@ -37,6 +45,7 @@ package Pikabot::Global;
 #     - Switched to SelfLoader.  Since these subs are really small, their
 #       on-the-fly compile time will be next to nothing.
 #     - added some globals
+
 
 use strict;
 use warnings;
@@ -55,6 +64,9 @@ sub SETTING_TYPE ()
 sub SETTING_BASE ()
   { 'Irssi::settings_add_' }
 
+sub BOT_VAR_NAME ()
+  { 'BOT' }
+
 sub CMPNNT_REGEX ()
   { '^Pikabot\:\:Component\:\:(\S+)$' }
 
@@ -64,9 +76,6 @@ sub SIGNAL_REGEX ()
 sub CONFIG_FIELD ()
   { qw(name url description authors contact version) }
 
-sub BOT_VAR_NAME ()
-  { 'BOT' }
-
 sub CMPNNT_METHS ()
   { qw(BOOT TRIGGERS) }
 
@@ -75,6 +84,3 @@ sub CONFG_LAYOUT ()
 
 sub PERLINT_NAME ()
   { 'Perl Commandline Interpreter' }
-
-sub REPORT_LEVEL ()
-  { '', qw(WARNING ERROR), 'SCARY ERROR' }
