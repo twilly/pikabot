@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 package Pikabot::Report;
-# Pikabot::Report: Container of all the error strings and report formats.
+# Pikabot::Report: Builds error strings and warning messages.
 #
 # Copyright (C) 2009  Justin Lee  < kool.name at gmail.com >
 #
@@ -20,19 +20,24 @@ package Pikabot::Report;
 ###
 # To do:
 #
+#   2009-04-19:
+#     - Fix caller being called twice in "error" method...
 #   2009-04-18:
-#     - develop better method for returning error string
+#     - (DROP 2009-04-19) develop better method for returning error string
 #   2009-04-16:
 #     - (DROP 2009-04-18) possibly remove Exporter completely, probably don't need it
 #   2009-04-07:
-#     - (DONE 2009-04-18) Use "caller()" somehow for the ERRSTR/ERROR
-#       function?
+#     - (DONE 2009-04-18) Use "caller()" somehow for the ERRSTR/ERROR function?
 #   2009-04-06:
 #     - (DROP) boil the list of messages down some
 #     - (DONE) fix exporter bug
 ###
 # History:
 #
+#   2009-04-19:
+#     - Imported Pikabot::Report::Section and Pikabot::Report::Header and
+#       made the required changes to this module.
+#     - Split the messages out to their own files! :D
 #   2009-04-18:
 #     - further implmented "caller" and moved away from
 #       object oriented
@@ -54,7 +59,11 @@ package Pikabot::Report;
 use strict;
 use warnings;
 
+use Carp;
+
 use Pikabot::Global;
+use Pikabot::Report::Section qw(s_string);
+use Pikabot::Report::Header qw(h_string);
 
 our (@ISA, @EXPORT_OK);
 
@@ -65,43 +74,8 @@ BEGIN {
 }
 
 
+
 # Internal methods and the like.
-
-sub _error_string ($) {
-  # This method will decimate IO... But since it's only called
-  # to die I don't see a problem. :P  Maybe it would be smarter
-  # to make an array of refs to subs outside the __DATA__ token
-  # and use SelfLoader?  Or simply pull an acme and parse __DATA__
-  # where it contains one error message per line, just set (or
-  # run through $. [line number]) to the one we want, and read it.
-  # But for now, I'm lazy and this will do.
-
-  return [
-    'Invalid object', #0
-    'Unable to spawn', #1
-    'Unknown author', #2
-    'Unable to unregister', #3
-    'Unable to register', #4
-    'Unable to load component', #5
-    'Unable to call load method', #6
-    'Error fetching signal call', #7
-    'Unable to spawn config', #8
-
-  ]->[int(abs(shift))]; # I don't even trust myself.
-}
-
-sub _get_level ($) {
-  my ($level) = @_;
-  my $string = [Pikabot::Global::REPORT_LEVEL]->[$level];
-
-  (defined($string) and
-    length($string)) or do {
-
-    return ('');
-  };
-
-  return ("$string: ");
-}
 
 sub _rename_e ($) {
   my ($file) = @_;
@@ -113,51 +87,55 @@ sub _rename_e ($) {
       return ($file); # allows for files named -e
     };
 
-    return (Pikabot::Global::PERLINT_NAME);
+    return (Pikabot::Global->PERLINT_NAME);
   };
 
-  return (undef); # uh-oh
+  return (undef); # uh oh
 }
 
 
 # External methods and the like.
 
 sub error ($$;$) {
-  my ($l, $e, $message) = @_;
-  my $error = _error_string($e);
-  my $level = _get_level($l);
+  my ($h, $s, $m) = @_;
+  my ($header, $section) = (h_string($h), s_string($s));
 
-  defined($error) or do {
+  defined($m) or do {
 
-    confess 'ERROR: ' . __PACKAGE__ . ": Specified error string, '$i', does not exist";
+    $m = '';
   };
-  defined($message) or do {
+  length($m) and do {
 
-    $message = '';
-  };
-  length($message) and do {
-
-    $error .= ": $message";
+    $m = ": $m";
   };
 
 
-  my ($package, $file, $line, $subroutine, $hasargs, $wantarray, $evaltext, $is_require, $hints, $bitmask, $hinthash) = caller(1);
+  if (defined(caller(1))) {
+    my ($p, $f, $l, $s, $a, $w, $e, $r, $h, $b, $i) = caller(1);
 
-  my $filename = _rename_e($file);
+    my $pkg = $p . '->' . $s;
+    my $file = _rename_e($f);
 
-  defined($filename) or do {
+    defined($file) or do {
 
-    confess 'SCARY ERROR: ' . __PACKAGE__ . ": Could not find $file, don't you be deleting my files";
-  };
-  defined($subroutine) or do {
+      confess __PACKAGE__ . ': Caller gave a bad file descriptor';
+    };
 
-    return ("${level}${package}: ${error} (${filename}\@${line})... ");
-  };
-  $subroutine eq '(eval)' and do {
-    # Will code when needed.
-  };
+    return ("${pkg}: ${header}: ${section}${m} at ${file} line ${l}... ");
+  } else {
+    my ($p, $f, $l) = caller;
 
-  return ("${level}${package}::${subroutine}: ${error} (${filename}\@${line})... ");
+    my $pkg = _trim_package($p);
+    my $file = _rename_e($f);
+
+    defined($file) or do {
+
+      confess __PACKAGE__ . ': Caller gave a bad file descriptor';
+    };
+
+
+    return ("${pkg}: ${header}: ${section}${m} at ${file} line ${l}... ");
+  }
 }
 
 
