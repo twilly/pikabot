@@ -149,8 +149,18 @@ sub google_search {
   }
 
   # Cut out the JS call and parse
-  $results =~ s/^GwebSearch.RawCompletion\('\d+',//;
-  return jsonToObj($results);
+  # Edits by dean:
+  #   JSON.pm was complaining about left over crap at the
+  #   end of the parse, turns out, there was crap there! :D
+  #   I added an extra substitution, and made the first one
+  #   less restrictive (which is arguably not better).
+  $results =~ s/^.*?\{/\{/o;
+  $results =~ s/, 200, null, 205\)$//oi;
+
+  # Edits by dean:
+  #   All I had was the newest version of JSON.pm which yelled
+  #   at me for using depricated methods, so I updated this line.
+  return from_json($results);
 }
 
 sub irc_privmsg {
@@ -170,7 +180,7 @@ sub irc_privmsg {
     quotewords(',', 0, Irssi::settings_get_str('gsearch_channels'));
   $site_url = Irssi::settings_get_str('gsearch_site_url');
   $ajax_key = Irssi::settings_get_str('gsearch_key');
- 
+
   # permitted?
   if(not (uc($to) eq uc($me) or $gsearch_active_chans{uc($to)})){
     return 1;
