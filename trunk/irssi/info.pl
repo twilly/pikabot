@@ -59,9 +59,9 @@ sub irc_genmsg {
   my ($me, $target) = ($server->{'nick'}, find_target($to, $from));
 
   if(uc($to) eq uc($me) or $active_chans{uc($to)}){
-    if($message =~ /^[^!]*!uptime/oi){
+    if($message =~ /^\s*!uptime/oi){
       $server->command($cmd . " $target " . trigger_uptime());
-    } elsif($message =~ /^[^!]*!info/oi) {
+    } elsif($message =~ /^\s*!info/oi) {
       $server->command($cmd . " $target " . trigger_info());
     }
   }
