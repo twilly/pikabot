@@ -28,31 +28,31 @@ VACUUM;
 
 -- Data
 CREATE TABLE anime (
-	aid INTEGER PRIMARY KEY,
-	type varchar(1024),
-	numeps INTEGER,
-	rating REAL,
-	startdate date,
-	enddate date,
-	url varchar(1024)
+  aid INTEGER PRIMARY KEY,
+  type varchar(1024),
+  numeps INTEGER,
+  rating REAL,
+  startdate date,
+  enddate date,
+  url varchar(1024)
 );
 CREATE TABLE titles (
-	aid int REFERENCES anime(aid),
-	title varchar(1024)
+  aid int REFERENCES anime(aid),
+  title varchar(1024)
 );
 CREATE TABLE genre_names (
-	gid INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
-	gname varchar(1024) UNIQUE
+  gid INTEGER PRIMARY KEY AUTOINCREMENT,
+  gname varchar(1024) UNIQUE
 );
 CREATE TABLE genre (
-	aid int REFERENCES anime(aid),
-	gid int REFERENCES genre_names(gid)
+  aid int REFERENCES anime(aid),
+  gid int REFERENCES genre_names(gid)
 );
 
 -- Metadata
 CREATE TABLE details_cache (
-	aid int PRIMARY KEY REFERENCES anime(aid),
-	last_refreshed int
+  aid int PRIMARY KEY REFERENCES anime(aid),
+  last_refreshed int
 );
 CREATE TABLE search_cache_table (
     sid INTEGER PRIMARY KEY AUTOINCREMENT,
