@@ -29,19 +29,21 @@ use HTML::Scrape qw(put);
 
 
 # HTML::Scrape search page
- my $search_machine = 
+ my $search_machine =
   [ # Match the anime list
     { 'tag'     => 'table',
       'require' => { 'class' => qr/animelist/ } },
- 
+
     # Grab a single result
     { 'label'   => 'result',
-      'tag'     => 'a',
-      'require' => { 'href' => qr/aid=\d+/ },
+      'tag'     => 'td',
+      'require' => { 'class' => qr/name/ } },
+
+    # Grab link
+    { 'tag'     => 'a',
       'attr'    => { 'href' => put('link') } },
-    { 'tag'     => 'img',
-      'attr'    => { 'alt' => put('title') } },
- 
+    { 'text'    => put('title') },
+
     # commit and loop back
     { 'tag'    => 'tr',
       'commit' => 1,
@@ -82,22 +84,22 @@ my $anime_titles_machine =
 my $anime_misc_machine =
   [ [ # branches for various metadata
       { 'label'   => 'top',
-        'tag'     => 'tr', 
+        'tag'     => 'tr',
         'require' => { 'class' => qr/type/ },
         'goto'    => 'type' },
-      { 'tag'     => 'tr', 
+      { 'tag'     => 'tr',
         'require' => { 'class' => qr/year/ },
         'goto'    => 'year' },
-      { 'tag'     => 'tr', 
+      { 'tag'     => 'tr',
         'require' => { 'class' => qr/categories/ },
         'goto'    => 'categories' },
-      { 'tag'     => 'tr', 
+      { 'tag'     => 'tr',
         'require' => { 'class' => qr/([^p]|^)rating/ },
         'goto'    => 'rating' },
-      { 'tag'     => 'tr', 
+      { 'tag'     => 'tr',
         'require' => { 'class' => qr/tmprating/ },
         'goto'    => 'tmprating' },
-      { 'tag'     => 'tr', 
+      { 'tag'     => 'tr',
         'require' => { 'class' => qr/resources/ },
         'goto'    => 'resources' },
       { 'tag'     => 'input',
