@@ -98,7 +98,7 @@ sub date_put($) {
           s/^0+//; $_
         } grep {
           defined
-        } @{[ $3, $2, $1, $7, $6, $5 ]};
+        } @{[ $3, $2, $1, $7, $6, $5 ]}; # avoids complaints
 
         $_[0]->{'element'}->{$e->[0]} = sprintf('%04d-%02d-%02d', @dates[0..2]);
 
@@ -176,7 +176,7 @@ sub regex_put($$) {
   );
 }
 
-sub basic_machine($$;$$) {
+sub basic_machine($;$$$) {
   my ($l, $f, $d, $r) = @_;
 
   defined($r) or do {
@@ -188,6 +188,9 @@ sub basic_machine($$;$$) {
   };
   ref($d) eq 'CODE' or do {
     $d = undef;
+  };
+  defined($f) or do {
+    $f = $r;
   };
 
   return (
@@ -210,27 +213,27 @@ sub basic_machine($$;$$) {
 # Enter the machines~
 
 sub SYNONYMS() {
-  basic_machine('tab_2_pane', 'title', \&synonyms_put)
+  basic_machine('tab_2_pane', 'synonym', \&synonyms_put)
 }
 
 sub SHORTNAMES() {
-  basic_machine('tab_2_pane', 'title')
+  basic_machine('tab_2_pane', 'shortname')
 }
 
 sub RATING() {
-  basic_machine('tab_1_pane', 'value', undef, '(?<!tmp)rating')
+  basic_machine('tab_1_pane', 'rating', undef, '(?<!tmp)rating')
 }
 
 sub TMPRATING() {
-  basic_machine('tab_1_pane', 'value')
+  basic_machine('tab_1_pane')
 }
 
 sub TYPE() {
-  basic_machine('tab_1_pane', [qw(type value)], \&type_put)
+  basic_machine('tab_1_pane', [qw(type length)], \&type_put)
 }
 
 sub YEAR() {
-  basic_machine('tab_1_pane', [qw(from to)], \&date_put)
+  basic_machine('tab_1_pane', [qw(start end)], \&date_put)
 }
 
 sub SEARCH() {
@@ -246,7 +249,7 @@ sub SEARCH() {
 
     # Grab link
     { 'tag'     => 'a',
-      'attr'    => { 'href' => regex_put('id', qr/aid=(\d+)/) } },
+      'attr'    => { 'href' => regex_put('aid', qr/aid=(\d+)/) } },
 
     # Grab "term" (title)
     { 'text'    => put('title') },
@@ -271,13 +274,12 @@ sub BASIC() {
     # Save the title
     { 'text'    => basic_put('title') },
 
-    # Save the link
+    # Jump to the link
     { 'tag'     => 'a',
-      'require' => { 'class' => qr/short_link/ },
-      'attr'    => { 'href' => put('link') } },
+      'require' => { 'class' => qr/short_link/ } },
 
     # save the text
-    { 'text'    => basic_put('id') },
+    { 'text'    => basic_put('aid') },
   ]
 }
 
@@ -326,7 +328,7 @@ sub CATEGORIES() {
       # Grab the id then drop! :D
       { 'label'   => 'catears',
         'tag'     => 'a',
-        'attr'    => { 'href' => regex_put('id', qr/catid\.(\d+)/) } },
+        'attr'    => { 'href' => regex_put('cid', qr/catid\.(\d+)/) } },
 
       # We're all done, halt
       { 'tag'   => 'tr',
@@ -334,7 +336,7 @@ sub CATEGORIES() {
     ],
 
     # Save category title
-    { 'text'    => put('title'),
+    { 'text'    => put('category'),
       'goto'    => 'catears',
       'commit'  => 1 },
 
@@ -344,7 +346,7 @@ sub CATEGORIES() {
   ]
 }
 
-sub PRODUCERS() {
+sub CREATORS() {
   [
     # Find the required section
     { 'tag'     => 'div',
@@ -360,7 +362,7 @@ sub PRODUCERS() {
         'tag'   => 'a',
         'attr'  => {
           'title' => regex_put('type', qr/^(\S+)/),
-          'href'  => regex_put('id', qr/creatorid=(\d+)/) } },
+          'href'  => regex_put('pid', qr/creatorid=(\d+)/) } },
 
       # We're all done, halt
       { 'tag'   => 'tr',
