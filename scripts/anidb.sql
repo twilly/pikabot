@@ -1,4 +1,5 @@
--- anidb.sql: anidb database schema, now with more modular!
+-- anidb.sql:
+--   anidb database crap, now with less modular!
 --
 -- Copyright (C) 2006-2009  Tristan Willy  <tristan.willy at gmail.com>
 -- Copyright (C) 2009  Justin "The Dean" Lee  <kool.name at gmail.com>
@@ -138,7 +139,8 @@ CREATE TABLE shortnames (
 CREATE TABLE resources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT(1024) NOT NULL ON CONFLICT IGNORE,
-  link TEXT(1024) NOT NULL ON CONFLICT IGNORE
+  link TEXT(1024) NOT NULL ON CONFLICT IGNORE,
+  aid INTEGER REFERENCES anime(aid)
 );
 
 
@@ -184,6 +186,7 @@ CREATE TRIGGER purge_animes
           (got + (SELECT value FROM config WHERE name = 'anime_refresh') - 1)
             <
           julianday('now');
+      -- This section could possibly be sped up?
       DELETE FROM creators
         WHERE
           NOT EXISTS (SELECT * FROM anime WHERE anime.aid = creators.aid);
