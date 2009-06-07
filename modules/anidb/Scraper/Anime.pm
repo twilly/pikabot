@@ -120,14 +120,14 @@ sub type_put($) {
       $_[1] =~ m{
         ^\s* # clean up~
 
-        ([^,]+) # type~
+        ([^,]+) # type~ (1)
 
         (?:
           \s*,\s* # it's got an ep count
           (?:
-            (unknown.*of) # conan style ep count
+            (unknown.*of) # conan style ep count (2)
               |
-            (\d+) # normal ep count
+            (\d+) # normal ep count (3)
           )
           \s*episodes?
         )?
@@ -176,6 +176,8 @@ sub regex_put($$) {
   );
 }
 
+# This is an abstraction of all the "basic" scrape
+# machines.  Helped get rid of code repitition.
 sub basic_machine($;$$$) {
   my ($l, $f, $d, $r) = @_;
 
