@@ -53,7 +53,9 @@ sub h_string ($) {
 
 
   while (<DATA>) {
-    $. == $h and do {
+    $. == $s and do {
+
+      chomp;
 
       # This allows for comments at the end of a line in __DATA__.  If
       # you want a "#" in your line, prefix it with "\"...
@@ -65,8 +67,6 @@ sub h_string ($) {
         next;
       };
 
-      chomp;
-
       return ($_);
     };
   }
@@ -76,7 +76,14 @@ sub h_string ($) {
 
 __PACKAGE__;
 
+
 __DATA__
 Unable to spawn bot # 1
 Method "load" called too early # 2
 Unable to load component # 3
+Unable to build config # 4
+Warning # 5 - just for general cases
+Error # 6 - just for general cases
+Method "freeze" called too early # 7
+Unable to freeze # 8
+Unable to thaw # 9

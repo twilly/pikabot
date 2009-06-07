@@ -45,7 +45,7 @@ use warnings;
 # Methods provided by the symtest package, none are
 # exported by default.
 
-sub synthesize ($;$$$) {
+sub synthesize ($;$$) {
   # This routine is candidate for optimization! :D
   #
   # symtest::synthesize() is a combination of the

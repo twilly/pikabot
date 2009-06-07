@@ -21,19 +21,21 @@ package Pikabot::Global;
 # To do:
 #
 #   2009-04-19:
-#     - Could possibly add Exporter to some kind of
+#     - (DROP 2009-04-22) Could possibly add Exporter to some kind of
 #       hack that reads my (Pikabot::Globals) symbol table and builds a
 #       @EXPORT array from that.  It could be done using the END construct
 #       instead of the BEGIN construct, that way the subs could all be folded
 #       down by the optimizer and made into constants.
 #   2009-04-16:
-#     - Change SIGNAL_REGEX to be less strict.
+#     - (DROP 2009-04-22) Change SIGNAL_REGEX to be less strict.
 #     - (UPDATE 2009-04-19) Could possibly add Exporter to some kind of
 #       hack that reads my (Pikabot::Globals) symbol table and builds a
 #       @EXPORT array from that.
 ###
 # History:
 #
+#   2009-04-22:
+#     - Dropped a few, added a few.
 #   2009-04-19:
 #     - Dropped "REPORT_LEVEL", it is no longer used.
 #   2009-04-18:
@@ -61,26 +63,26 @@ __DATA__
 sub SETTING_TYPE ()
   { qw(str int bool time level size) }
 
-sub SETTING_BASE ()
-  { 'Irssi::settings_add_' }
-
-sub BOT_VAR_NAME ()
-  { 'BOT' }
-
 sub CMPNNT_REGEX ()
-  { '^Pikabot\:\:Component\:\:(\S+)$' }
+  { 'Pikabot\:\:Component\:\:\S+$' }
 
 sub SIGNAL_REGEX ()
   { '^(?:main|Pikabot)\:\:signal_(\S+)$' }
 
+sub BAD_CORE_GEX ()
+  { 'Can.t locate (.+?) in .INC' }
+
 sub CONFIG_FIELD ()
-  { qw(name url description authors contact version) }
+  { qw(name url core description authors contact version) }
 
-sub CMPNNT_METHS ()
-  { qw(BOOT TRIGGERS) }
-
-sub CONFG_LAYOUT ()
-  { { 'silent' => 0, 'setting' => {}, 'active' => { 'channel' => {}, 'network' => {} }, 'trigger' => {} } }
+sub LAYOUT_FIELD ()
+  { 'bot' }
 
 sub PERLINT_NAME ()
   { 'Perl Commandline Interpreter' }
+
+sub TRIGGER_CHAR ()
+  { '!' }
+
+sub METHOD_CHART ()
+  { qw(BOOT) }
