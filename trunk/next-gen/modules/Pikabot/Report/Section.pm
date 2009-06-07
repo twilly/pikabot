@@ -55,6 +55,8 @@ sub s_string ($) {
   while (<DATA>) {
     $. == $s and do {
 
+      chomp;
+
       # This allows for comments at the end of a line in __DATA__.  If
       # you want a "#" in your line, prefix it with "\"...
       s/\s*(?<!\\)#.*//o; # drop comments
@@ -65,8 +67,6 @@ sub s_string ($) {
         next;
       };
 
-      chomp;
-
       return ($_);
     };
   }
@@ -76,9 +76,10 @@ sub s_string ($) {
 
 __PACKAGE__;
 
+
 __DATA__
 Could not find given symbol # 1
-Was not given a useful symbol # 2
+Was not given a useful reference # 2
 Given symbol does not exist # 3
 Given symbol does not contain a hash # 4
 Required setup key missing or undefined # 5
@@ -90,3 +91,13 @@ Attempted overload # 10
 Component returned an invalid package name # 11
 Storage of config file failed # 12
 Compilation failed # 13
+Specified file already exists # 14
+lock_store encountered an error # 15
+Unable to autoconfigure # 16
+Bad file descriptor # 17
+Bot already frozen # 18
+Specified file does not exist # 19
+lock_retrieve encountered an error # 20
+Class mismatch # 21
+Could not locate configuration file # 22
+Pikabot seems to have been improperly stored # 23

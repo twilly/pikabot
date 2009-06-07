@@ -1,10 +1,8 @@
 #!/usr/bin/perl -w
 package Pikabot::Component::Deref;
-# deref: Dereferencing module for Pikabot.  This is an example of Pikabot's
-#        component's coding standard, I guess.
+# deref: Dereferencing module for Pikabot.
 #
-# Copyright (C) 2009  Justin Lee  < kool.name at gmail.com >
-# Some Code Copyright (C) 2006  Tristan Willy  < tristan.willy at gmail.com >
+# Copyright (C) 2009  Authors @ http://pikabot.googlecode.com/
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 2
@@ -22,20 +20,80 @@ package Pikabot::Component::Deref;
 ###
 # To do:
 #
-#   2009-04-14:
-#     - Move "$type" check (for send_message) out to driver or Pikabot?
 ###
 # History:
 #
-#   2009-04-16:
-#     - Removed setting, signal, and channel boot methods... Now pc will be
-#       happy, right?   I think they'll get moved into a configuration file
-#       or be completely managed by the driver script... Who knows.
-#   2009-04-14:
-#     - base coding done
-
+#   2009-04-21:
+#     - Complete re-code.
 
 use strict;
 use warnings;
 
 use LWP;
+
+sub BOOT () {
+  # I don't care how this hash gets here, but it has to be here.
+  # "BOOT" can look for an external file, whatever.  As long as
+  # "BOOT" returns an anonymous hash with this stuff in it.
+  # Note that settings in Irssi will override these...  Which
+  # makes them DEFAULTS. :)
+  {
+    # REQUIRED
+    'setting' => {
+      'max_redirect' => [
+        'int',
+        0,
+      ],
+      'user_agent' => [
+        'str',
+        'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) Gecko/20060124 Firefox/1.5.0.1',
+      ],
+    },
+    'active' => {
+      'aniverse' => [ '#51' ],
+      'ibo' => [],
+      '' => [ '#honobono' ],
+    },
+    # OPTIONAL
+    'trigger' => {
+      '(?i:deref(?:erence))' => \&trigger,
+    }
+    'command' => {
+      '(?i:deref(?:erence))' => \&command,
+    }
+  }
+}
+
+sub trigger {
+  my ($trigger, $target, $message, $stack, $setting) = @_;
+  my ($url) = split(/\s+/, $message, 2);
+
+  $target = $stack->{'target'};
+
+  my ($redir) = deref($url, $setting->{'max_redirect'}, $setting->{'user_agent'});
+
+  defined($redir) or do {
+
+    return (
+      # error
+    );
+  };
+
+  return (
+    # not error
+  );
+}
+
+sub command {
+  my ($whatever) = @_;
+  # do crap
+}
+
+sub deref ($$$) {
+  my ($u, $r, $a) = @_;
+
+  # do crap
+}
+
+
+__PACKAGE__;
