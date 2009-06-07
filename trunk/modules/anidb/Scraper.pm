@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 package anidb::Scraper;
-# anidb::Scraper.pm: Screen scraper for AniDB.net...
+# anidb::Scraper.pm:
+#   Screen scraper for AniDB.net...
 #
 # Copyright (C) 2006-2009  Tristan Willy  <tristan.willy at gmail.com>
 # Copyright (C) 2009  Justin "idiot" Lee  <kool.name at gmail.com>
