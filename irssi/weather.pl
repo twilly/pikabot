@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 # weather.pl: Weather Channel weather information.
 #
 # Copyright (C) 2007   Tristan Willy <tristan.willy at gmail.com>
