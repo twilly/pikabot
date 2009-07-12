@@ -28,7 +28,7 @@ $VERSION = '0.01';
            'description' => 'Weather Channel trigger',
            'license'     => 'GPL v2' );
 my %weather_active_chans;
-my $errstr;
+my ($errstr, $bot_pid, $bot_key);
 
 # If we're in irssi, load up irssi interface, otherwise call main
 if(in_irssi()){
@@ -53,6 +53,8 @@ sub load_irssi_internals  {
   Irssi->import;
 
   Irssi::settings_add_str($IRSSI{'name'}, 'weather_channels', '');
+  Irssi::settings_add_str($IRSSI{'name'}, 'weather_partner_id', '');
+  Irssi::settings_add_str($IRSSI{'name'}, 'weather_key', '');
 
   load_globals();
 
@@ -64,6 +66,12 @@ sub load_irssi_internals  {
 sub load_globals {
   map { $weather_active_chans{uc($_)} = 1 }
     quotewords(',', 0, Irssi::settings_get_str('weather_channels'));
+  $bot_pid = Irssi::settings_get_str('weather_partner_id');
+  $bot_key = Irssi::settings_get_str('weather_key');
+  if(not $bot_pid or not $bot_key){
+    Irssi::print("Warning: weather script requires partner_id and " .
+        "key settings");
+  }
 }
 
 
@@ -92,8 +100,10 @@ sub privmsg_error {
 sub trigger_weather {
   my ($server, $target, $to, $from, $address, $where) = @_;
 
-  my $loc_id = get_location_id($where) or return privmsg_error($server, $target);
-  my $weather = get_weather($loc_id) or return privmsg_error($server, $target);
+  my $loc_id = get_location_id($where)
+    or return privmsg_error($server, $target);
+  my $weather = get_weather($loc_id, $bot_pid, $bot_key)
+    or return privmsg_error($server, $target);
   $server->command("msg $target " . english_report($weather));
 }
 
@@ -128,9 +138,10 @@ sub get_location_id {
 
 
 sub get_weather {
-  my ($loc_id) = @_;
+  my ($loc_id, $pid, $key) = @_;
   my $agent = LWP::UserAgent->new('agent' => 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.1) Gecko/20060124 Firefox/1.5.0.1');
-  my $weather = $agent->get('http://xoap.weather.com/weather/local/' . $loc_id . '?cc=*');
+  my $weather = $agent->get('http://xoap.weather.com/weather/local/' .
+          $loc_id . "?link=xoap&prod=xoap&par=$pid&key=$key&cc=");
   if(not $weather->is_success()){
     $errstr = "Failed to get search document. Broken service?";
     return;
@@ -191,16 +202,22 @@ sub find_target {
 
 
 sub main {
-  if($#ARGV < 0){
+  if($#ARGV < 2){
     warn "I need arguments or to be loaded into irssi.\n";
+    warn "Usage: $0 [partner ID] [key] [location]\n";
     exit 1;
   }
+
+  my $pid = shift @ARGV;
+  my $key = shift @ARGV;
 
   my $location = '';
   $location .= "$_ " foreach @ARGV;
   chop($location);
-  my $loc_id = get_location_id($location) or die "cannot get location id";
-  my $weather = get_weather($loc_id) or die "cannot get weather";
+  my $loc_id = get_location_id($location)
+      or die "cannot get location id for \"$location\"";
+  my $weather = get_weather($loc_id, $pid, $key)
+      or die "cannot get weather for location $loc_id";
   use Data::Dumper;
   print Dumper($weather);
   print english_report($weather) . "\n";
