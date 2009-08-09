@@ -26,7 +26,7 @@ $VERSION = '1.00';
            'description' => 'Differential event router.',
            'license'     => 'GPL v3' );
 
-my (%axle_active_chans, $axle_tick, $filter);
+my (%axle_active_chans, $axle_key, $axle_tick, $filter);
 
 irssi_register();
 
@@ -37,8 +37,6 @@ sub irssi_register {
     Irssi::signal_add('setup changed', 'load_globals');
     Irssi::timeout_add(60000, 'check_queue', 0);
     load_globals();
-    $axle_tick = get_tick();
-    Irssi::print("Axle loaded. Current Differential tick: $axle_tick");
 }
 
 
@@ -59,11 +57,13 @@ sub load_globals {
 # called once a minute to check Differential RSS messages
 sub check_queue {
     return if not defined $filter;
-    foreach my $item (get_rss_items()){
+    my $sock = dconnect() or return;
+    foreach my $item (get_rss_items($sock)){
         if($item->{filename} =~ $filter){
             chans_notify("ZOMG! $item->{filename} is out! <$item->{url}>");
         }
     }
+    dclose($sock);
 }
 
 
@@ -78,72 +78,65 @@ sub chans_notify {
 }
 
 
-# get_tick: query Differential for its current time
-# returns current Differential tick or zero
-sub get_tick {
-    my $sock = dcq('TICK') or return;
+# get_state: query Differential for its state
+# this will update our state to match Differential's
+sub get_state {
+    my $sock = shift;
+    
+    # send query
+    my $s = dquery($sock, 'STATE');
+    return if failed_status($s);
 
-    my $resp = <$sock>;
-    my $dtick = $1 if $resp =~ /^TICKIS\s+(\d+)/;
-    dclose($sock);
-
-    if(defined $dtick){
-        return $dtick;
+    # get a line
+    my ($reply, $key, $tick) = dgetline($sock);
+    if($reply eq 'STATE' and defined $key and defined $tick){
+        $axle_key = $key;
+        $axle_tick = $tick;
     } else {
-        return 0;
-    }    
+        $axle_key = undef;
+        $axle_tick = undef;
+    }
 }
 
 
 # get_rss_items: query Differential for the latest RSS items
 # requires $axle_tick to be in a global namespace and defined
 sub get_rss_items {
-    if(not defined $axle_tick){
-        Irssi::print("get_rss_items: precondition not met");
-        return;
+    my $sock = shift;
+
+    # get state if we havent got it
+    if(not defined $axle_key or not defined $axle_tick){
+        get_state($sock);
     }
 
-    my $sock = dcq('GETRSS', $axle_tick) or return;
-    # process list response
+    # send query
+    my @cmd = ('GETRSS', $axle_key, $axle_tick);
+    my $status = dquery($sock, @cmd) or return;
+    if($status->{num} == 401){
+        # state mismatch! request state and retry
+        get_state($sock);
+        $status = dquery($sock, @cmd) or return;
+    }
+
+    # return on error (we tried our best)
+    return if failed_status($status);
+
+    # 'GETRSS' worked, process list response
     my @list;
-    while(<$sock>){
-        chomp;
-        my @field = split /\t/;
-        my $resp = shift @field;
+    my $eol = 0;
+    do {
+        my ($resp, @args) = dgetline($sock) or return;
         if($resp eq '/LIST'){
-            last;
-        }
-        if($resp eq 'ITEM'){
-            my ($item_tick, $fn, $url) = @field;
+            $eol = 1;
+        } elsif($resp eq 'ITEM'){
+            my ($item_tick, $fn, $url) = @args;
             $axle_tick = $item_tick if $item_tick > $axle_tick;
             push @list, { 'filename' => $fn, 'url' => $url };
         }
-    }
-    dclose($sock);
+    } while(not $eol);
 
     # return the items
     return @list;
-}
-
-
-# dcq: Differential connect and query. Connects and issues a command.
-# returns socket handle, or undef on error
-sub dcq {
-    my @cmd = @_;
-
-    my $sock = dconnect() or return;
-    my $status = dquery($sock, @cmd) or do {
-        Irssi::print("Query '$cmd[0]' completely failed.");
-        dclose($sock);
-        return;
-    };
-    if($status->{num} != 200){
-        Irssi::print("Command '$cmd[0]' failed: $status->{line}");
-        dclose($sock);
-        return;
-    }
-
-    return $sock;
 }
 
 
@@ -162,21 +155,39 @@ sub dconnect {
 
 
 # dquery: sends a command to Differential
-# returns status line
+# returns status line or false on error
 # example: dquery($socket, 'GETRSS', 7);
 sub dquery {
     my ($sock, @cmd) = @_;
 
+    # build the request, read and parse the reply
     my $cout = join("\t", @cmd);
     print $sock "$cout\n";
     my $status_line = <$sock>;
     chomp $status_line;
+    my $response;
     if($status_line =~ /^(\d+)\s*(.+)/){
-        return { num => $1, reason => $2, line => $status_line };
+        $response = { num => $1, reason => $2, line => $status_line };
     } else {
         # strange response
+        Irssi::print("Query '$cmd[0]' completely failed.");
         return;
     }
+
+    # give the caller the response
+    return $response;
+}
+
+
+# dgetline: gets a generic response line (tab delimited, NL terminated)
+# returns response as an array
+sub dgetline {
+    my $sock = shift or return;
+
+    my $r = <$sock>;
+    chomp $r;
+
+    return split /\t/, $r;
 }
 
 
@@ -185,5 +196,21 @@ sub dclose {
     my $sock = shift or return;
     print $sock "QUIT";
     close($sock);
+}
+
+
+# failed_status: process a dquery status line for failure
+# returns true if it's a bad response, false if it's OK
+sub failed_status {
+    my $status = shift;
+
+    # error if no status at all
+    return 1 if not defined $status;
+
+    # OK if 2xx code
+    return 0 if $status->{num} >= 200 and $status->{num} < 300;
+
+    # everything else is error
+    return 1;
 }
 
