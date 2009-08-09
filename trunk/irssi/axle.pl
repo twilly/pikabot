@@ -26,7 +26,7 @@ $VERSION = '1.00';
            'description' => 'Differential event router.',
            'license'     => 'GPL v3' );
 
-my (%axle_active_chans, $axle_key, $axle_tick, $filter);
+my (%axle_active_chans, $axle_key, $axle_tick, $filter, $axel_debug);
 
 irssi_register();
 
@@ -34,6 +34,7 @@ irssi_register();
 sub irssi_register {
     Irssi::settings_add_str($IRSSI{'name'}, 'axle_channels', '');
     Irssi::settings_add_str($IRSSI{'name'}, 'axle_filter', '.*');
+    Irssi::settings_add_int($IRSSI{'name'}, 'axle_debug', 0);
     Irssi::signal_add('setup changed', 'load_globals');
     Irssi::timeout_add(60000, 'check_queue', 0);
     load_globals();
@@ -50,6 +51,7 @@ sub load_globals {
         Irssi::print("/$fstr/ is not valid: $@");
         $filter = undef;
     }
+    $axel_debug = Irssi::settings_get_int('axle_debug');
 }
 
 
@@ -57,8 +59,10 @@ sub load_globals {
 # called once a minute to check Differential RSS messages
 sub check_queue {
     return if not defined $filter;
+    Irssi::print("axel: check with filter $filter") if $axel_debug;
     my $sock = dconnect() or return;
     foreach my $item (get_rss_items($sock)){
+        Irssi::print("axel: new item: $item->{filename}") if $axel_debug;
         if($item->{filename} =~ $filter){
             chans_notify("ZOMG! $item->{filename} is out! <$item->{url}>");
         }
@@ -82,14 +86,15 @@ sub chans_notify {
 # this will update our state to match Differential's
 sub get_state {
     my $sock = shift;
-    
+
     # send query
     my $s = dquery($sock, 'STATE');
     return if failed_status($s);
 
     # get a line
     my ($reply, $key, $tick) = dgetline($sock);
-    if($reply eq 'STATE' and defined $key and defined $tick){
+    if($reply eq 'STATEIS' and defined $key and defined $tick){
+        Irssi::print("axel: got state: $key $tick") if $axel_debug;
         $axle_key = $key;
         $axle_tick = $tick;
     } else {
@@ -115,11 +120,14 @@ sub get_rss_items {
     if($status->{num} == 401){
         # state mismatch! request state and retry
         get_state($sock);
-        $status = dquery($sock, @cmd) or return;
+        $status = dquery($sock, @cmd);
     }
 
     # return on error (we tried our best)
-    return if failed_status($status);
+    if(failed_status($status)){
+        Irssi::print("axle: unable to query RSS feeds.");
+        return;
+    }
 
     # 'GETRSS' worked, process list response
     my @list;
