@@ -59,12 +59,13 @@ sub load_globals {
 # called once a minute to check Differential RSS messages
 sub check_queue {
     return if not defined $filter;
-    Irssi::print("axel: check with filter $filter") if $axel_debug;
     my $sock = dconnect() or return;
     foreach my $item (get_rss_items($sock)){
         Irssi::print("axel: new item: $item->{filename}") if $axel_debug;
         if($item->{filename} =~ $filter){
             chans_notify("ZOMG! $item->{filename} is out! <$item->{url}>");
+        } else {
+            Irssi::print("axel: item failed to match against $filter") if $axel_debug;
         }
     }
     dclose($sock);
