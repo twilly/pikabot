@@ -20,6 +20,7 @@ use strict;
 use Text::ParseWords;
 use LWP;
 use XML::DOM;
+use utf8;
 use vars qw($VERSION %IRSSI);
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
