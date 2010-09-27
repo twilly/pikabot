@@ -19,7 +19,7 @@
 use strict;
 use Text::ParseWords;
 use LWP;
-use XML::DOM::Lite qw(Parser :constants);
+use XML::DOM;
 use vars qw($VERSION %IRSSI);
 $VERSION = '0.01';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
@@ -117,15 +117,16 @@ sub get_location_id {
     return;
   } else {
     # find the ID
-    my $search_doc = Parser->parse($search->content())
+    my $parser = new XML::DOM::Parser;
+    my $search_doc = $parser->parse($search->content())
       or do { $errstr = "Failed to parse search result."; return };
     my ($hits, $loc) = (0, undef);
     map {
-      if($_->tagName eq 'loc'){
+      if($_->getNodeName() eq 'loc'){
         $hits++;
         $loc = $_ if not defined $loc;
       }
-    } @{$search_doc->documentElement()->childNodes()};
+    } @{$search_doc->getDocumentElement()->getChildNodes()};
     if($hits < 1){
       $errstr = "Couldn't find \"$where\".";
       return;
@@ -146,9 +147,14 @@ sub get_weather {
     $errstr = "Failed to get search document. Broken service?";
     return;
   } else {
-    my $weather_doc = Parser->parse($weather->content());
+    my $parser = new XML::DOM::Parser;
+    my $weather_doc = $parser->parse($weather->content());
     my $cc = undef;
-    map { $cc = $_ if $_->tagName() eq 'cc' } @{$weather_doc->documentElement()->childNodes()};
+    foreach (@{$weather_doc->getDocumentElement()->getChildNodes()}){
+        if($_->getNodeName() eq 'cc'){
+            $cc = $_;
+        }
+    }
     if(not defined $cc){
       $errstr = "Error getting local weather.";
       return;
@@ -163,9 +169,10 @@ sub get_weather {
                   );
     my %result;
     map {
-        $actions{$_->tagName()}->(\%result, $_->firstChild()->nodeValue(), $_) if defined $actions{$_->tagName()};
-        # print "no action for child node \"" . $_->tagName() . "\"\n" if not defined $actions{$_->tagName()};
-    } @{$cc->childNodes()};
+        if(defined $actions{$_->getNodeName()}){
+            $actions{$_->getNodeName()}->(\%result, $_->getFirstChild()->getNodeValue(), $_)
+        }
+    } @{$cc->getChildNodes()};
     return \%result;
   }
 }
