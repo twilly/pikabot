@@ -1,0 +1,12 @@
+-= pikabot =-
+
+pikabot is a set of scripts designed to turn irssi into a simple IRC bot.
+All of these scripts are GPLv2 execept for the following imported scripts:
+
+irssi/autorejoin.pl
+irssi/keepnick.pl
+irssi/trigger.pl
+
+These scripts are copyright their respective authors (see the files for
+details).
+
