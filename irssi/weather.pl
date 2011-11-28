@@ -150,14 +150,21 @@ sub get_weather {
   } else {
     my $parser = new XML::DOM::Parser;
     my $weather_doc = $parser->parse($weather->content());
-    my $cc = undef;
+    my ($cc, $err);
     foreach (@{$weather_doc->getDocumentElement()->getChildNodes()}){
         if($_->getNodeName() eq 'cc'){
             $cc = $_;
         }
+        if($_->getNodeName() eq 'err'){
+            $err = $_;
+        }
     }
     if(not defined $cc){
-      $errstr = "Error getting local weather.";
+        if(defined $err){
+            $errstr = $err->getFirstChild->getNodeValue();
+        } else {
+            $errstr = "Error getting local weather.";
+        }
       return;
     }
     my %actions = ( 'obst' => sub { $_[0]->{location} = $_[1] },
@@ -225,7 +232,7 @@ sub main {
   my $loc_id = get_location_id($location)
       or die "cannot get location id for \"$location\"";
   my $weather = get_weather($loc_id, $pid, $key)
-      or die "cannot get weather for location $loc_id";
+      or die "cannot get weather for location $loc_id: $errstr\n";
   use Data::Dumper;
   print Dumper($weather);
   print english_report($weather) . "\n";
