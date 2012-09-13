@@ -112,7 +112,7 @@ sub dispatch_message {
   my %chan_dispatch =
     ( '^\s*!pika' => \&trigger_pika,
       '^\s*!insult' => \&trigger_insult,
-      '^\s*!huggle([sz])?[^-]' => \&trigger_huggle,
+      '^\s*!huggle([sz]{0,1})[^-]' => \&trigger_huggle,
       '^\s*!fortune' => \&trigger_fortune,
       '^\s*!huggle-glom(s|p|ps)?' => \&trigger_huggle_glomp);
   # Check if it was for the channel we joined...
@@ -210,7 +210,7 @@ sub trigger_huggle {
   my $huggles = join('', map { $_ = rand_color() . $_ } split('', 'huggles'));
   my @msg;
 
-  if($message =~ /\s*!huggle(sz)?\s+(.+?)(\s+)?$/io){
+  if($message =~ /\s*!huggle([sz]{0,1})\s+(.+?)(\s+)?$/io){
     my $to_huggle = $2;
     push @msg, "\x0313<3 <3 <3 @{[rand_color() . $from]} " .
       "@{[rand_color() . $adverbs[int rand scalar @adverbs]]} $huggles " .
