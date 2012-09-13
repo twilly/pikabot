@@ -22,14 +22,14 @@ use vars qw($VERSION %IRSSI);
 use Irssi;
 $VERSION = '0.10';
 %IRSSI = ( 'authors'     => 'Tristan Willy',
-	   'contact'     => 'tristan.willy at gmail.com',
-	   'name'        => 'Fun',
-	   'description' => 'Fun channel triggers',
-	   'license'     => 'GPL v2' );
+           'contact'     => 'tristan.willy at gmail.com',
+           'name'        => 'Fun',
+           'description' => 'Fun channel triggers',
+           'license'     => 'GPL v2' );
 
 Irssi::settings_add_str($IRSSI{'name'}, 'fun_channels', '');
 Irssi::settings_add_str($IRSSI{'name'}, 'fun_pikas',
-			'Chuuuu!,Pika?,Pika ka pika\, Pikachu!,Pikapi!');
+                        'Chuuuu!,Pika?,Pika ka pika\, Pikachu!,Pikapi!');
 
 my @adverbs =
   ( 'vigorously', 'powerfully', 'lovingly',
@@ -76,7 +76,7 @@ sub irc_notice {
   if(not defined $target){
     if(not defined $only_channel){
       $server->command("notice $from Error: too many active " .
-		       "channels for this trigger.");
+                       "channels for this trigger.");
       return 1;
     } else {
       $target = $only_channel;
@@ -119,15 +119,15 @@ sub dispatch_message {
   foreach my $regex (keys %chan_dispatch){
     if($message =~ /$regex/i){
       my $msg = $chan_dispatch{$regex}->($server, $to,
-					 $from, $message);
+                                         $from, $message);
       eval {
-	push @text, @{$msg} if defined $msg;
+        push @text, @{$msg} if defined $msg;
       };
       if($@){
-	Irssi::print("Error: match on /$regex/ failed to return valid array ref.");
-	Irssi::print("detail: to = $to, from = $from, message = $message");
-	Irssi::print("perl error: $@");
-	@text = ();
+        Irssi::print("Error: match on /$regex/ failed to return valid array ref.");
+        Irssi::print("detail: to = $to, from = $from, message = $message");
+        Irssi::print("perl error: $@");
+        @text = ();
       }
     }
   }
@@ -169,37 +169,37 @@ sub trigger_insult {
   my @Insults =
     (
      [qw(
-	 artless bawdy beslubbering bootless churlish cockered clouted
-	 craven currish dankish dissembling droning errant fawning
-	 fobbing froward frothy gleeking goatish gorbellied impertinent
-	 infectious jarring loggerheaded lumpish mammering mangled
-	 mewling paunchy pribbling puking puny quailing rank reeky
-	 roguish ruttish saucy spleeny spongy surly tottering unmuzzled
-	 vain venomed villainous warped wayward weedy yeasty
-	)],
+         artless bawdy beslubbering bootless churlish cockered clouted
+         craven currish dankish dissembling droning errant fawning
+         fobbing froward frothy gleeking goatish gorbellied impertinent
+         infectious jarring loggerheaded lumpish mammering mangled
+         mewling paunchy pribbling puking puny quailing rank reeky
+         roguish ruttish saucy spleeny spongy surly tottering unmuzzled
+         vain venomed villainous warped wayward weedy yeasty
+        )],
      [qw(
-	 base-court bat-fowling beef-witted beetle-headed boil-brained
-	 clapper-clawed clay-brained common-kissing crook-pated
-	 dismal-dreaming dizzy-eyed doghearted dread-bolted earth-vexing
-	 elf-skinned fat-kidneyed fen-sucked flap-mouthed fly-bitten
-	 folly-fallen fool-born full-gorged guts-griping half-faced
-	 hasty-witted hedge-born hell-hated idle-headed ill-breeding
-	 ill-nurtured knotty-pated milk-livered motley-minded onion-eyed
-	 plume-plucked pottle-deep pox-marked reeling-ripe rough-hewn
-	 rude-growing rump-fed shard-borne sheep-biting spur-galled
-	 swag-bellied tardy-gaited tickle-brained toad-spotted
-	 urchin-snouted weather-bitten
-	)],
+         base-court bat-fowling beef-witted beetle-headed boil-brained
+         clapper-clawed clay-brained common-kissing crook-pated
+         dismal-dreaming dizzy-eyed doghearted dread-bolted earth-vexing
+         elf-skinned fat-kidneyed fen-sucked flap-mouthed fly-bitten
+         folly-fallen fool-born full-gorged guts-griping half-faced
+         hasty-witted hedge-born hell-hated idle-headed ill-breeding
+         ill-nurtured knotty-pated milk-livered motley-minded onion-eyed
+         plume-plucked pottle-deep pox-marked reeling-ripe rough-hewn
+         rude-growing rump-fed shard-borne sheep-biting spur-galled
+         swag-bellied tardy-gaited tickle-brained toad-spotted
+         urchin-snouted weather-bitten
+        )],
      [qw(
-	 apple-john baggage barnacle bladder boar-pig bugbear bum-bailey
-	 canker-blossom clack-dish clotpole coxcomb codpiece death-token
-	 dewberry flap-dragon flax-wench flirt-gill foot-licker
-	 fustilarian giglet gudgeon haggard harpy hedge-pig horn-beast
-	 hugger-mugger jolthead lewdster loat maggot-pie malt-worm mammet
-	 measle minnow miscreant moldwarp mumble-news nut-hook pigeon-egg
-	 pignut puttock pumpion ratsbane scut skainsmate strumpet varlet
-	 vassal whey-face wagtail
-	)]
+         apple-john baggage barnacle bladder boar-pig bugbear bum-bailey
+         canker-blossom clack-dish clotpole coxcomb codpiece death-token
+         dewberry flap-dragon flax-wench flirt-gill foot-licker
+         fustilarian giglet gudgeon haggard harpy hedge-pig horn-beast
+         hugger-mugger jolthead lewdster loat maggot-pie malt-worm mammet
+         measle minnow miscreant moldwarp mumble-news nut-hook pigeon-egg
+         pignut puttock pumpion ratsbane scut skainsmate strumpet varlet
+         vassal whey-face wagtail
+        )]
     );
 
   return [ "$who @{[ map { $$_[ int rand scalar @$_ ] } @Insults ]}." ];
@@ -214,7 +214,7 @@ sub trigger_huggle {
     my $to_huggle = $2;
     push @msg, "\x0313<3 <3 <3 @{[rand_color() . $from]} " .
       "@{[rand_color() . $adverbs[int rand scalar @adverbs]]} $huggles " .
-	"@{[rand_color() . $to_huggle]} \x0313<3 <3 <3";
+        "@{[rand_color() . $to_huggle]} \x0313<3 <3 <3";
   }
 
   return \@msg;
@@ -229,8 +229,8 @@ sub trigger_huggle_glomp {
     my @rc = (rand_color(), rand_color(), rand_color(), rand_color());
     push @msg,
       "\x0313*^-^* $rc[0]$from $rc[1]$adverbs[int rand $#adverbs] " .
-	"$rc[2]huggle *GLOMPS* $rc[3]$to_huggle " .
-	  "\x0313*^-^*";
+        "$rc[2]huggle *GLOMPS* $rc[3]$to_huggle " .
+          "\x0313*^-^*";
   }
 
   return \@msg;
