@@ -41,7 +41,7 @@ CREATE TABLE titles (
   title varchar(1024)
 );
 CREATE TABLE genre_names (
-  gid INTEGER PRIMARY KEY AUTOINCREMENT,
+  gid AUTOINCREMENT,
   gname varchar(1024) UNIQUE
 );
 CREATE TABLE genre (
@@ -55,7 +55,7 @@ CREATE TABLE details_cache (
   last_refreshed int
 );
 CREATE TABLE search_cache_table (
-    sid INTEGER PRIMARY KEY AUTOINCREMENT,
+    sid AUTOINCREMENT,
     terms varchar(1024) UNIQUE,
     last_refreshed DATE
 );
